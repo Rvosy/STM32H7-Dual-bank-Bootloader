@@ -1,0 +1,141 @@
+# ===========================
+# STM32 Bootloader .gitignore
+# ===========================
+
+# ===========================
+# Keil MDK-ARM
+# ===========================
+# Build outputs
+MDK-ARM/**/Objects/
+MDK-ARM/**/Listings/
+MDK-ARM/**/*.axf
+MDK-ARM/**/*.hex
+MDK-ARM/**/*.bin
+MDK-ARM/**/*.elf
+MDK-ARM/**/*.map
+MDK-ARM/**/*.htm
+MDK-ARM/**/*.lnp
+MDK-ARM/**/*.lst
+MDK-ARM/**/*.build_log.htm
+
+# Object files and dependencies
+MDK-ARM/**/*.o
+MDK-ARM/**/*.d
+MDK-ARM/**/*.crf
+MDK-ARM/**/*.dep
+
+# Scatter file backups
+MDK-ARM/**/*.Bak
+MDK-ARM/**/Bootloader_sct.Bak
+
+# User GUI settings (personal preferences)
+MDK-ARM/*.uvguix.*
+MDK-ARM/**/ExtDll.iex
+
+# Debug configuration (optional - remove if you want to share)
+MDK-ARM/DebugConfig/
+
+# RTE component cache
+MDK-ARM/RTE/_*/
+
+# Keep these files (do not ignore)
+# MDK-ARM/*.uvprojx  - Project file
+# MDK-ARM/*.uvoptx   - Options file
+# MDK-ARM/startup_*.s - Startup file
+
+# ===========================
+# EIDE (Embedded IDE for VS Code)
+# ===========================
+EIDE/build/
+EIDE/.eide/
+EIDE/**/*.o
+EIDE/**/*.d
+EIDE/**/*.hex
+EIDE/**/*.bin
+EIDE/**/*.elf
+EIDE/**/*.map
+EIDE/**/*.axf
+
+# ===========================
+# STM32CubeIDE / STM32CubeMX
+# ===========================
+# STM32CubeIDE specific
+.settings/
+Debug/
+Release/
+*.launch
+
+# STM32CubeMX backup files
+*.ioc.bak
+
+# ===========================
+# Compiler outputs (general)
+# ===========================
+*.o
+*.obj
+*.elf
+*.map
+*.lst
+*.i
+*.s.bak
+
+# ===========================
+# VS Code
+# ===========================
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/c_cpp_properties.json
+*.code-workspace
+
+# ===========================
+# Windows
+# ===========================
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ===========================
+# macOS
+# ===========================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ===========================
+# Linux
+# ===========================
+*~
+.directory
+
+# ===========================
+# IDE / Editor specific
+# ===========================
+# JetBrains IDEs
+.idea/
+
+# Eclipse
+.project
+.cproject
+.pydevproject
+
+# ===========================
+# Backup and temporary files
+# ===========================
+*.bak
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# ===========================
+# Binary outputs (keep in separate release folder)
+# ===========================
+# Uncomment if you don't want to track firmware binaries
+# *.hex
+# *.bin
