@@ -115,14 +115,18 @@ static int check_trailer_binding(const tr_rec_t* tr, const image_t* img)
 }
 
 /**
- * @brief  【规则1】检查 inactive 是否满足升级条件
- * @note   可升级条件组合：
+ * @brief  【规则1】检查 inactive 是否满足"升级"条件 (upgrade policy)
+ * @note   升级条件组合：
  *         1. inactive 镜像 valid (magic+vector+CRC 都 OK)
- *         2. inactive 版本号 > active 版本号 (或 active 无效)
+ *         2. inactive 版本号 > active 版本号 (active 必须 valid)
  *         3. inactive trailer 当前不是 REJECTED (针对该镜像)
- *         4. (可选) 若 inactive 已有 trailer，需要 CRC 绑定一致
+ *         4. inactive 不能已经是 CONFIRMED (说明是回滚到旧版本)
+ * 
+ *         ！！！注意：这只用于"升级"场景，不用于"容错"场景！！！
+ *         容错 (failover) 在 active 无效时必须无条件启动 inactive
+ * 
  * @param  inactive: inactive slot 镜像信息
- * @param  active: active slot 镜像信息
+ * @param  active: active slot 镜像信息 (必须 valid)
  * @param  inactive_tr: inactive slot 的 trailer 记录
  * @param  has_inactive_tr: 是否有有效的 inactive trailer 记录
  * @retval 1=满足升级条件, 0=不满足
@@ -130,43 +134,44 @@ static int check_trailer_binding(const tr_rec_t* tr, const image_t* img)
 static int check_upgrade_eligible(const image_t* inactive, const image_t* active,
                                   const tr_rec_t* inactive_tr, int has_inactive_tr)
 {
+    /* 前置条件: 此函数仅在 active valid 时被调用 */
+    if (!active->valid) {
+        /* 这种情况应该走 failover 逻辑，不是 upgrade */
+        return 0;
+    }
+    
     /* 条件1: inactive 镜像必须有效 */
     if (!inactive->valid) {
         return 0;
     }
     
-    /* 条件2: inactive 版本必须高于 active (或 active 无效) */
-    if (active->valid) {
-        if (Boot_SemverCompare(inactive->hdr->ver, active->hdr->ver) <= 0) {
-            /* inactive 版本不高于 active，不需要升级 */
+    /* 条件2: inactive 版本必须高于 active */
+    if (Boot_SemverCompare(inactive->hdr->ver, active->hdr->ver) <= 0) {
+        /* inactive 版本不高于 active，不需要升级 */
+        return 0;
+    }
+    
+    /* 条件3: 检查 inactive trailer 状态 */
+    if (has_inactive_tr && check_trailer_binding(inactive_tr, inactive)) {
+        if (inactive_tr->state == TR_STATE_REJECTED) {
+            /* 该镜像已被标记为 REJECTED，拒绝升级 */
+            printf("[Boot] Upgrade blocked: inactive image is REJECTED\r\n");
             return 0;
         }
-    }
-    /* else: active 无效，inactive 有效就应该切换 */
-    
-    /* 条件3: 检查 inactive 是否已被 REJECTED */
-    if (has_inactive_tr) {
-        /* 只有当 trailer CRC 与当前镜像 CRC 一致时，才认为 trailer 有效 */
-        if (check_trailer_binding(inactive_tr, inactive)) {
-            if (inactive_tr->state == TR_STATE_REJECTED) {
-                /* 该镜像已被标记为 REJECTED，拒绝升级 */
-                printf("[Boot] Upgrade blocked: inactive image is REJECTED\r\n");
-                return 0;
-            }
-            /* 如果已经是 CONFIRMED，也不需要重新写 PENDING */
-            if (inactive_tr->state == TR_STATE_CONFIRMED) {
-                printf("[Boot] Upgrade blocked: inactive image already CONFIRMED (version rollback?)\r\n");
-                return 0;
-            }
-            /* 如果已经是 PENDING，说明正在升级过程中，不要重复写 */
-            if (inactive_tr->state == TR_STATE_PENDING) {
-                printf("[Boot] Upgrade in progress: inactive already PENDING\r\n");
-                /* 返回 1 继续执行 swap，但不需要再写 PENDING */
-                return 1;
-            }
+        /* 如果已经是 CONFIRMED，说明曾经是主槽被确认过，然后被换下去了
+           现在又想升级回来？不允许，避免版本循环 */
+        if (inactive_tr->state == TR_STATE_CONFIRMED) {
+            printf("[Boot] Upgrade blocked: inactive image already CONFIRMED (version rollback?)\r\n");
+            return 0;
         }
-        /* else: trailer CRC 不匹配，说明是旧镜像的 trailer，忽略 */
+        /* 如果已经是 PENDING，说明正在升级过程中，不要重复写 */
+        if (inactive_tr->state == TR_STATE_PENDING) {
+            printf("[Boot] Upgrade in progress: inactive already PENDING\r\n");
+            /* 返回 1 继续执行 swap，但不需要再写 PENDING */
+            return 1;
+        }
     }
+    /* else: trailer CRC 不匹配，说明是旧镜像的 trailer，忽略 */
     
     return 1;
 }
@@ -209,21 +214,39 @@ void Boot_JumpToApp(void)
     while (1) {}
 }
 
+
+void Boot_JumpToBootloader(void)
+{
+// 跳转至Bootloader
+  uint32_t BootAddr = 0x1FF09800;
+  uint32_t StackAddr = *(volatile uint32_t*)BootAddr;
+  uint32_t EntryAddr = *(volatile uint32_t*)(BootAddr + 4);
+  
+  __set_MSP(StackAddr);
+  ((void (*)(void))EntryAddr)();
+}
 /**
  * @brief  执行回滚状态机决策
  * @note   实现 MCUboot 风格的 test/confirm/revert 机制
  * 
- *         【规则1】只有满足"可升级条件"时才把 inactive 标为 PENDING：
- *           - inactive 镜像 valid (magic+vector+CRC 都 OK)
- *           - inactive 版本号 > active 版本号 (或 active 无效)
- *           - inactive trailer 当前不是 REJECTED (针对该镜像)
- *           - inactive 的 header CRC 与 trailer 绑定一致 (若有 trailer)
+ *         ===== 决策优先级表 (正确的逻辑) =====
  * 
- *         【规则2】PENDING 计数触发点：
- *           - 每次进入 Boot，发现 active 仍处于 PENDING 且未 CONFIRMED
- *           - 则 attempt++ 并写入一条新记录
- *           - 若 attempt >= MAX_ATTEMPTS：写 REJECTED，然后 swap 回旧版本
- *           - 这与 MCUboot 的语义一致："test 升级若不 confirm 则下次重启 revert"
+ *         IF A.valid:
+ *           IF B.valid && B.version > A.version && B not rejected → 升级：写 PENDING → swap → reset
+ *           ELSE → 直接启动 A（无操作）
+ * 
+ *         IF A.invalid:
+ *           IF B.valid → 必须切到 B（failover），不管 B 是什么状态
+ *           IF B.invalid → DFU
+ * 
+ *         ===== 关键原则 =====
+ *         - 升级策略 (upgrade policy) 可以被 block (版本、REJECTED、CONFIRMED)
+ *         - 容错启动 (failover/recovery) 不能被 block，只要 inactive valid 就必须切换
+ * 
+ *         ===== PENDING 处理 (规则2) =====
+ *         - 每次进入 Boot，发现 active 仍处于 PENDING 且未 CONFIRMED
+ *         - 则 attempt++ 并写入一条新记录
+ *         - 若 attempt >= MAX_ATTEMPTS：写 REJECTED，然后 swap 回旧版本
  */
 rollback_action_t Boot_RollbackDecision(void)
 {
@@ -268,18 +291,29 @@ rollback_action_t Boot_RollbackDecision(void)
     printf("\r\n");
     
     /*=========================================================================
-     * 阶段 1：两个都无效 → 进入 DFU 模式
+     * 分支 1: A (active) 无效
+     *         → 必须进行容错启动 (failover)，不受任何升级策略限制
      *=========================================================================*/
-    if (!active.valid && !inactive.valid) {
-        printf("[Boot] No valid image found\r\n");
-        return ROLLBACK_DFU_MODE;
+    if (!active.valid) {
+        if (inactive.valid) {
+            /* ★★★ FAILOVER: inactive 有效，必须切换过去 ★★★ */
+            /* 不管 inactive 是 PENDING/CONFIRMED/REJECTED，都要启动它 */
+            printf("[Boot] FAILOVER: Active is invalid, switching to valid inactive slot\r\n");
+            return ROLLBACK_SWAP_TO_OLD;  /* 容错切换 */
+        } else {
+            /* 两个都无效，只能 DFU */
+            printf("[Boot] No valid image found, entering DFU mode\r\n");
+            return ROLLBACK_DFU_MODE;
+        }
     }
     
     /*=========================================================================
-     * 阶段 2：【规则2】检查 active 的 PENDING 状态
-     *         每次进入 Boot，发现 active 仍处于 PENDING 且未 CONFIRMED，就 attempt++
+     * 分支 2: A (active) 有效
+     *         → 先处理 PENDING/REJECTED 状态，再考虑是否升级到 B
      *=========================================================================*/
-    if (has_active_tr && active.valid && check_trailer_binding(&active_tr, &active)) {
+    
+    /* 阶段 2.1: 处理 active 的 trailer 状态 (规则2: PENDING 计数) */
+    if (has_active_tr && check_trailer_binding(&active_tr, &active)) {
         switch (active_tr.state) {
             case TR_STATE_PENDING:
                 /* 
@@ -311,14 +345,12 @@ rollback_action_t Boot_RollbackDecision(void)
                 return ROLLBACK_CONTINUE_PENDING;
                 
             case TR_STATE_CONFIRMED:
-                /* 已确认，正常启动。不再检查 inactive 是否有更高版本 */
-                /* 因为用户可能故意想用这个确认过的版本 */
-                printf("[Boot] Active image is CONFIRMED, booting normally\r\n");
-                /* 继续执行阶段3，检查是否有更高版本的 inactive */
+                /* 已确认，继续执行阶段 2.2 检查是否有更高版本 */
+                printf("[Boot] Active image is CONFIRMED\r\n");
                 break;
                 
             case TR_STATE_REJECTED:
-                /* active 已被拒绝（可能是之前升级失败），需要回滚 */
+                /* active 已被拒绝，需要回滚到 inactive */
                 printf("[Boot] Active image is REJECTED\r\n");
                 if (inactive.valid) {
                     printf("[Boot] Rollback to inactive slot\r\n");
@@ -326,7 +358,7 @@ rollback_action_t Boot_RollbackDecision(void)
                 }
                 /* inactive 无效，只能继续用被 rejected 的（危险但无奈） */
                 printf("[Boot] WARNING: No valid inactive, forced to use rejected image\r\n");
-                break;
+                return ROLLBACK_NONE;
                 
             default:
                 /* 未知状态，当作无 trailer 处理 */
@@ -339,9 +371,7 @@ rollback_action_t Boot_RollbackDecision(void)
                (unsigned long)active_tr.img_crc32, (unsigned long)active.hdr->img_crc32);
     }
     
-    /*=========================================================================
-     * 阶段 3：【规则1】检查是否满足升级条件，决定是否切换到 inactive
-     *=========================================================================*/
+    /* 阶段 2.2: 检查是否满足"升级"条件 (upgrade policy) */
     if (check_upgrade_eligible(&inactive, &active, &inactive_tr, has_inactive_tr)) {
         /* 检查 inactive 是否已经是 PENDING 状态 (正在升级中，之前可能被中断) */
         int already_pending = has_inactive_tr && 
@@ -360,14 +390,7 @@ rollback_action_t Boot_RollbackDecision(void)
         return ROLLBACK_SWAP_TO_NEW;
     }
     
-    /*=========================================================================
-     * 阶段 4：无需任何操作，正常启动 active
-     *=========================================================================*/
-    if (!active.valid) {
-        /* 理论上不应该走到这里，但做保护 */
-        return ROLLBACK_DFU_MODE;
-    }
-    
+    /* 阶段 2.3: 无需任何操作，正常启动 active */
     printf("[Boot] Booting active slot\r\n");
     return ROLLBACK_NONE;
 }
@@ -401,6 +424,9 @@ void Boot_ExecuteRollbackAction(rollback_action_t action)
         case ROLLBACK_DFU_MODE:
             /* 进入 DFU 模式 */
             printf("[Boot] Entering DFU mode...\r\n");
+            g_JumpInit = 0x5555AAAA;
+            __DSB();
+            NVIC_SystemReset();
             while (1) {
                 HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
                 HAL_Delay(100);

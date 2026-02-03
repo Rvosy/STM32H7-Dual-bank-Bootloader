@@ -48,6 +48,9 @@ void Boot_SelectAndJump(void);
  */
 void Boot_JumpToApp(void);
 
+
+void Boot_JumpToBootloader(void);
+
 /**
  * @brief  检查是否应该立即跳转到 App
  * @retval 1=应该跳转, 0=不应该跳转

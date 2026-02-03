@@ -77,6 +77,10 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  if(g_JumpInit == 0x5555AAAA){
+    g_JumpInit = 0;
+    Boot_JumpToBootloader();
+  }
     //检查是否是看门狗复位
   if(__HAL_RCC_GET_FLAG(RCC_FLAG_IWDG1RST)!=RESET){
       //清除复位标志
