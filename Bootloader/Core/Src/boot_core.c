@@ -367,8 +367,18 @@ rollback_action_t Boot_RollbackDecision(void)
         }
     } else if (has_active_tr && active.valid) {
         /* trailer CRC 与镜像 CRC 不匹配，说明 trailer 是旧镜像的 */
-        printf("[Boot] Active trailer CRC mismatch (0x%08lX != 0x%08lX), ignoring trailer\r\n",
+        printf("[Boot] Active trailer CRC mismatch (0x%08lX != 0x%08lX), treating as new image\r\n",
                (unsigned long)active_tr.img_crc32, (unsigned long)active.hdr->img_crc32);
+        /* 为新镜像写入 PENDING(attempt=1) */
+        printf("[Boot] Writing PENDING(attempt=1) for new active image\r\n");
+        trailer_write_pending(active_slot, active.hdr->img_crc32);
+        return ROLLBACK_CONTINUE_PENDING;
+    } else if (!has_active_tr && active.valid) {
+        /* 没有 trailer 记录，说明是全新镜像（直接烧录或首次启动） */
+        printf("[Boot] No trailer for active image, treating as new image\r\n");
+        printf("[Boot] Writing PENDING(attempt=1) for new active image\r\n");
+        trailer_write_pending(active_slot, active.hdr->img_crc32);
+        return ROLLBACK_CONTINUE_PENDING;
     }
     
     /* 阶段 2.2: 检查是否满足"升级"条件 (upgrade policy) */

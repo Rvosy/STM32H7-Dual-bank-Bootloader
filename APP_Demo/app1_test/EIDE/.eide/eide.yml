@@ -30,6 +30,7 @@ virtualFolder:
                 - path: ../Core/Src/stm32h7xx_hal_msp.c
                 - path: ../Core/Src/key.c
                 - path: ../Core/Src/app_confirm.c
+                - path: ../Core/Src/iap_write.c
               folders: []
     - name: Drivers
       files: []

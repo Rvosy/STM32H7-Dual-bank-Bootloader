@@ -27,6 +27,7 @@
 /* USER CODE BEGIN Includes */
 #include "image_header.h"
 #include "app_confirm.h"
+#include "iap_write.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -69,7 +70,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+iap_writer_t writer;
   /* USER CODE END 1 */
 
   /* MPU Configuration--------------------------------------------------------*/
@@ -102,7 +103,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART1_UART_Init();
-  MX_IWDG1_Init();
+  //MX_IWDG1_Init();
   /* USER CODE BEGIN 2 */
   App_PrintVersion();
   if (App_IsPending()) {
@@ -114,13 +115,18 @@ int main(void)
   } else {
     printf("App is in NEW or REJECTED state.\r\n");
   }
+  //IAP_EraseSlot();
+  //iap写入16进制测试数据
+  IAP_Begin(&writer, IAP_GetInactiveSlotBase(), 1024);  // 预留 1KB 空间
+  IAP_Write(&writer, (const uint8_t *)"\xDE\xAD\xBE\xEF\xCA\xFE\xBA\xBE", 8);
+  IAP_End(&writer);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_IWDG_Refresh(&hiwdg1);
+	  //HAL_IWDG_Refresh(&hiwdg1);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
