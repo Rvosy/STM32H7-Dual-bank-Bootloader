@@ -88,6 +88,25 @@ Release/
 *.ioc.bak
 
 # ===========================
+# CMSIS 库 (可通过 CubeMX 重新生成)
+# ===========================
+**/Drivers/CMSIS/Core/
+**/Drivers/CMSIS/Core_A/
+**/Drivers/CMSIS/DSP/
+**/Drivers/CMSIS/NN/
+**/Drivers/CMSIS/RTOS/
+**/Drivers/CMSIS/RTOS2/
+**/Drivers/CMSIS/Include/
+**/Drivers/CMSIS/docs/
+# 保留 Device/ 文件夹 (包含 STM32 特定启动文件和系统配置)
+
+# ===========================
+# HAL 驱动库 (可通过 CubeMX 重新生成)
+# ===========================
+# 如果想忽略整个 HAL 库，取消下面的注释
+# **/Drivers/STM32H7xx_HAL_Driver/
+
+# ===========================
 # 编译器输出 (通用)
 # ===========================
 *.obj
