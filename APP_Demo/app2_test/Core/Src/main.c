@@ -97,7 +97,7 @@ int main(void)
   if (App_IsPending()) {
     printf("App is in PENDING state.\r\n");
     printf("Confirming app...\r\n");
-    //App_ConfirmSelf();
+    App_ConfirmSelf();
   } else if (App_IsConfirmed()) {
     printf("App is in CONFIRMED state.\r\n");
   } else {

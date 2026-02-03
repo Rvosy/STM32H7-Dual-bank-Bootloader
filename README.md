@@ -103,6 +103,44 @@ typedef struct {
 | `TR_STATE_CONFIRMED` | `0xAAAA0003` | 已确认，App 自检通过 |
 | `TR_STATE_REJECTED` | `0xAAAA0004` | 已拒绝，需要回滚 |
 
+### 工程级判定规则
+
+为避免"莫名其妙反复 swap"的问题，实现了两条工程级判定规则：
+
+#### 规则 1：可升级条件检查
+
+只有满足以下**全部条件**时，才会把 inactive 标记为 PENDING 并执行升级：
+
+| # | 条件 | 说明 |
+|---|------|------|
+| 1 | `inactive.valid == true` | 镜像有效 (magic + vector + CRC 校验通过) |
+| 2 | `inactive.version > active.version` | 版本更高 (或 active 无效) |
+| 3 | `inactive.trailer.state != REJECTED` | 该镜像未被标记为 REJECTED |
+| 4 | `inactive.trailer.crc == inactive.hdr.crc` | Trailer CRC 与镜像 CRC 绑定一致 (防止误判) |
+
+#### 规则 2：PENDING 计数触发点
+
+每次进入 Boot，若发现 **active 仍处于 PENDING 且未 CONFIRMED**：
+
+```
+Boot 启动
+   ↓
+检测到 active.trailer.state == PENDING
+   ↓
+   ├── attempt >= MAX_ATTEMPTS?
+   │       ↓ 是
+   │   写入 REJECTED → Bank Swap 回滚到旧版本
+   │
+   └── attempt < MAX_ATTEMPTS
+           ↓
+       attempt++ 写入新记录 → 继续启动 App
+```
+
+**关键语义**：这与 MCUboot/Mynewt 的行为一致：
+- 新镜像首次启动时 `attempt = 1`
+- 若 App 崩溃或未调用 `App_ConfirmSelf()`，下次重启 `attempt++`
+- 超过 `MAX_ATTEMPTS`（默认 3 次）后自动回滚到旧版本
+
 ### 回滚流程
 
 ```
