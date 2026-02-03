@@ -45,6 +45,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -103,13 +104,14 @@ int main(void)
   MX_IWDG1_Init();
   /* USER CODE BEGIN 2 */
   App_PrintVersion();
+  printf("ok\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	HAL_IWDG_Refresh(&hiwdg1);
+	  HAL_IWDG_Refresh(&hiwdg1);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

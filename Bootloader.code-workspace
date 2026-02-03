@@ -1,7 +1,20 @@
 {
-    "folders": [
-        {
-            "path": "."
-        }
+     "folders": [
+          {
+			  "name": "Root",
+              "path": "."
+          },
+          {
+              "name": "Bootloader",
+              "path": "Bootloader/EIDE"
+          },
+          {
+              "name": "app1_test",
+              "path": "APP_Demo/app1_test/EIDE"
+          },
+          {
+              "name": "app2_test",
+              "path": "APP_Demo/app2_test/EIDE"
+          }
     ]
 }

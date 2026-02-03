@@ -28,7 +28,6 @@ virtualFolder:
                 - path: ../Core/Src/usart.c
                 - path: ../MDK-ARM/bak.c
                 - path: ../Core/Src/crc.c
-                - path: ../Core/Src/main1.c
               folders: []
     - name: Drivers
       files: []
@@ -102,6 +101,9 @@ targets:
       - <virtual_root>/Drivers/User
       - <virtual_root>/Application/User/Core/bak.c
       - <virtual_root>/Application/User/Core/main1.c
+      - <virtual_root>/Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_usart_ex.c
+      - <virtual_root>/Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_usart.c
+      - <virtual_root>/Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_exti.c
     toolchain: AC5
     toolchainConfigMap:
       AC5:
@@ -111,9 +113,9 @@ targets:
         options:
           version: 4
           afterBuildTasks:
-            - name: bin
+            - name: Hex2bin
               abortAfterFailed: false
-              command: fromelf --bin -o ${ExecutableName}.bin ${ExecutableName}.elf
+              command: fromelf --bin -o ${ExecutableName}.bin ${ExecutableName}.axf
               disable: false
           asm-compiler:
             $use: asm-auto
@@ -268,7 +270,7 @@ targets:
         speed: 8000
       OpenOCD:
         baseAddr: "0x08000000"
-        bin: ""
+        bin: ${ExecutableName}.bin
         interface: stlink
-        target: stm32h7x_dual_bank
+        target: ${workspaceFolder}/.eide/stm32h7x_dual_boot
     uploader: OpenOCD

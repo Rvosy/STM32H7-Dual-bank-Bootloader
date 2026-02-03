@@ -200,8 +200,8 @@ targets:
         proType: 1
         speed: 8000
       OpenOCD:
-        baseAddr: "0x08000000"
-        bin: ""
+        baseAddr: "0x08120000"
+        bin: ${ProjectRoot}\Output\${ProjectName}_patched.bin
         interface: stlink
-        target: stm32h7x_dual_bank
+        target: ${workspaceFolder}/.eide/stm32h7x_dual_bank_app_norun
     uploader: OpenOCD

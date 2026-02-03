@@ -63,8 +63,6 @@
  * 放置在 DTCM RAM 固定地址，软复位后不会被清零
  */
 uint32_t g_JumpInit __attribute__((at(0x20000000), zero_init));  /* 跳转标志 */
-uint32_t g_AppEntry __attribute__((at(0x20000004), zero_init));  /* App 入口地址 */
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -277,7 +275,6 @@ void Boot_SelectAndJump(void)
     printf("[Boot] Jumping to Slot A at 0x%08X...\r\n", A.app_entry);
     
     /* 设置跳转参数，然后软复位 */
-    g_AppEntry = APP_A_ENTRY;
     g_JumpInit = BOOT_MAGIC;
     
     __DSB();
@@ -316,7 +313,6 @@ static void BankSwap_Set(uint32_t enable)
     }
 
     /* 如果 OB_Launch 没有立即复位，手动复位 */
-    g_AppEntry = APP_A_ENTRY;
     g_JumpInit = BOOT_MAGIC;
     NVIC_SystemReset();
     
@@ -330,7 +326,7 @@ static void BankSwap_Set(uint32_t enable)
 /* 跳转到 App (在外设初始化之前调用，状态干净) */
 static void JumpToApp(void)
 {
-    uint32_t entry = g_AppEntry;
+    uint32_t entry = APP_A_ENTRY;
   
     
     /* 设置向量表偏移 */
@@ -359,11 +355,18 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  
+    //检查是否是看门狗复位
+  if(__HAL_RCC_GET_FLAG(RCC_FLAG_IWDG1RST)!=RESET){
+      //清除复位标志
+      __HAL_RCC_CLEAR_RESET_FLAGS();
+      g_JumpInit = 0;
+  }
   /* 软复位后检测：如果已选好镜像，直接跳转（此时外设未初始化，状态干净）*/
   if (g_JumpInit == BOOT_MAGIC) {
       JumpToApp();
   }
+
+
   
   /* USER CODE END 1 */
 
@@ -419,10 +422,8 @@ int main(void)
   printf("B:::::::::::::::::B o:::::::::::::::oo:::::::::::::::o      tt::::::::::::::tl::::::lo:::::::::::::::oa:::::aaaa::::::a d:::::::::::::::::d e::::::::eeeeeeee   r:::::r            \r\n");
   printf("B::::::::::::::::B   oo:::::::::::oo  oo:::::::::::oo         tt:::::::::::ttl::::::l oo:::::::::::oo  a::::::::::aa:::a d:::::::::ddd::::d  ee:::::::::::::e   r:::::r            \r\n");
   printf("BBBBBBBBBBBBBBBBB      ooooooooooo      ooooooooooo             ttttttttttt  llllllll   ooooooooooo     aaaaaaaaaa  aaaa  ddddddddd   ddddd    eeeeeeeeeeeeee   rrrrrrr            \r\n");
-  printf("A                                                                                                                                                                                  \r\n");
-  printf("===================================================================================================================================================================================\r\n");        
   printf("                                                                                                                                                                                   \r\n");
-  
+  printf("===================================================================================================================================================================================\r\n");
   Boot_SelectAndJump();  // 选择镜像并跳转，不会返回
 
 
