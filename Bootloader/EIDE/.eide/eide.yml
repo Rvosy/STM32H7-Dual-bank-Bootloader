@@ -32,6 +32,7 @@ virtualFolder:
                 - path: ../Core/Src/boot_image.c
                 - path: ../Core/Src/boot_swap.c
                 - path: ../Core/Src/boot_core.c
+                - path: ../Core/Src/boot_slots.c
               folders: []
     - name: Drivers
       files: []

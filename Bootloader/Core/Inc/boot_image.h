@@ -5,15 +5,14 @@
 #include "image_header.h"
 
 /*============================================================================
- * 常量定义
+ * 说明
  *============================================================================*/
-
-#define SLOT_TOTAL_SIZE   0x000E0000u   /* Slot 总大小 (896KB) */
-#define SLOT_A_BASE       0x08020000u   /* Slot A 基地址 */
-#define SLOT_B_BASE       0x08120000u   /* Slot B 基地址 */
-
-#define APP_A_ENTRY       (SLOT_A_BASE + HDR_SIZE)  /* App A 入口地址 */
-#define APP_B_ENTRY       (SLOT_B_BASE + HDR_SIZE)  /* App B 入口地址 */
+/*
+ * boot_image 模块只负责对任意给定的 slot_base 进行镜像验证，
+ * 不关心 A/B Slot、不关心 Bank Swap 状态。
+ * 
+ * Slot 地址映射由 boot_slots 模块负责。
+ */
 
 /*============================================================================
  * 数据类型定义
