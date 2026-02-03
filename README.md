@@ -1,6 +1,6 @@
 # STM32H7 Dual Bank Bootloader
 
-基于 STM32H7 系列 Dual Bank 架构的 Bank Swap Bootloader，支持双 App 区域切换，实现安全可靠的 OTA 升级。
+基于 STM32H7 系列 Dual Bank 架构的 Bank Swap Bootloader，支持双 App 区域切换，实现安全可靠的 OTA 升级，具备完整的回滚机制。
 
 ## ✨ 特性
 
@@ -9,15 +9,18 @@
 - **镜像完整性校验**：Magic + Vector Table + CRC32 三重验证
 - **语义化版本管理**：自动选择更高版本的固件启动
 - **无缝升级**：新固件写入备用 Bank，验证通过后 Bank Swap 切换
+- **自动回滚**：新镜像试运行失败后自动回滚到旧版本 (MCUboot 风格)
 
 ## 📦 内存布局
 
 | Bank | 区域 | 地址范围 | 大小 | 说明 |
 |------|------|----------|------|------|
 | Bank1 | Bootloader | `0x08000000 - 0x0801FFFF` | 128KB | Boot 副本 1 |
-| Bank1 | **Slot A** | `0x08020000 - 0x080FFFFF` | 896KB | App 区 |
+| Bank1 | **App 区** | `0x08020000 - 0x080DFFFF` | 768KB | App 镜像 |
+| Bank1 | **Trailer** | `0x080E0000 - 0x080FFFFF` | 128KB | 回滚状态记录 |
 | Bank2 | Bootloader | `0x08100000 - 0x0811FFFF` | 128KB | Boot 副本 2 |
-| Bank2 | **Slot B** | `0x08120000 - 0x081FFFFF` | 896KB | App 区 |
+| Bank2 | **App 区** | `0x08120000 - 0x081DFFFF` | 768KB | App 镜像 |
+| Bank2 | **Trailer** | `0x081E0000 - 0x081FFFFF` | 128KB | 回滚状态记录 |
 
 > Bank Swap 后，Bank1/Bank2 的地址映射互换。由于两个 Bank 都有相同的 Bootloader，无论哪个 Bank 在前，Bootloader 都能正常运行并跳转到 `0x08020000` (当前 Bank 的 App 区)
 
@@ -48,24 +51,111 @@ typedef struct {
 └──────┬───────┘
        │ 无效
        ▼
-┌──────────────┐
-│ 校验 Slot A  │
-│ 校验 Slot B  │
-└──────┬───────┘
+┌──────────────────┐
+│ 读取 Trailer 状态 │
+│ 校验 Active/      │
+│ Inactive Slot     │
+└──────┬───────────┘
        ▼
-┌──────────────┐     A/B 都无效
-│ 版本比较选择 │────────────────▶ 进入 DFU 模式
-└──────┬───────┘
+┌──────────────────┐     A/B 都无效
+│  回滚状态机决策  │────────────────▶ 进入 DFU 模式
+└──────┬───────────┘
        │
        ▼
-┌──────────────┐
-│ B 版本更高?  │──── 是 ───▶ Bank Swap + 复位
-└──────┬───────┘
-       │ 否
-       ▼
-┌──────────────┐
-│ 跳转 Slot A  │
-└──────────────┘
+  ┌────┴────┐
+  │ 决策结果 │
+  └────┬────┘
+       │
+       ├─ PENDING 且 attempt < MAX ─▶ attempt++ → 跳转 App
+       │
+       ├─ PENDING 且 attempt >= MAX ─▶ REJECTED → Bank Swap 回滚
+       │
+       ├─ CONFIRMED ─────────────────▶ 跳转 App
+       │
+       ├─ REJECTED ──────────────────▶ Bank Swap 回滚
+       │
+       └─ Inactive 版本更高 ─────────▶ 写 PENDING → Bank Swap
+```
+
+## 🔄 回滚机制 (Trailer 扇区)
+
+参考 MCUboot 的 test/confirm/revert 思路，实现完整的回滚状态机。
+
+### Trailer 记录格式 (32B)
+
+```c
+typedef struct {
+    uint32_t magic;       // 固定 0x544C5252 ('TLRR')
+    uint32_t seq;         // 序列号，递增
+    uint32_t state;       // 状态：NEW/PENDING/CONFIRMED/REJECTED
+    uint32_t attempt;     // 尝试次数 1..N
+    uint32_t img_crc32;   // 绑定的镜像 CRC32
+    uint32_t rsv[3];      // 保留，padding to 32B
+} tr_rec_t;
+```
+
+### 状态定义
+
+| 状态 | 值 | 说明 |
+|------|-----|------|
+| `TR_STATE_NEW` | `0xAAAA0001` | 新镜像，尚未尝试启动 |
+| `TR_STATE_PENDING` | `0xAAAA0002` | 待确认，正在试运行 |
+| `TR_STATE_CONFIRMED` | `0xAAAA0003` | 已确认，App 自检通过 |
+| `TR_STATE_REJECTED` | `0xAAAA0004` | 已拒绝，需要回滚 |
+
+### 回滚流程
+
+```
+新镜像写入 Inactive Slot
+         ↓
+Boot 检测到 Inactive 版本更高
+         ↓
+写入 PENDING(attempt=1) → Bank Swap → 复位
+         ↓
+新镜像启动（作为 Active）
+         ↓
+App 自检 ─── 成功 ───→ App_ConfirmSelf() 写入 CONFIRMED
+         │
+         └── 失败/崩溃 ───→ Boot 检测到 PENDING
+                                  ↓
+                      attempt++ < MAX_ATTEMPTS ───→ 继续尝试
+                                  ↓
+                      attempt >= MAX_ATTEMPTS
+                                  ↓
+                      写入 REJECTED → Bank Swap 回滚
+```
+
+### App 侧确认 API
+
+```c
+// App 自检通过后调用，标记为 CONFIRMED
+int App_ConfirmSelf(void);
+
+// 检查当前镜像是否处于 PENDING 状态
+int App_IsPending(void);
+
+// 检查当前镜像是否已 CONFIRMED
+int App_IsConfirmed(void);
+```
+
+**使用示例：**
+
+```c
+int main(void) {
+    HAL_Init();
+    SystemClock_Config();
+    
+    // 执行 App 自检...
+    if (SelfTest_Pass()) {
+        // 自检通过，确认镜像
+        App_ConfirmSelf();
+    }
+    
+    // 正常运行...
+    while (1) {
+        // ...
+    }
+}
 ```
 
 ## 🛠️ 开发环境
@@ -127,7 +217,7 @@ py -3 ".\Tools\fill_hdr_crc.py" ".\Output\@L.bin" --out ".\Output\@L_patched.bin
 - [x] 镜像头格式定义与校验
 - [x] 版本比较与选择逻辑
 - [x] Bank Swap 切换实现
-- [ ] 回滚机制
+- [x] 回滚机制 (Trailer 扇区方案)
 - [ ] DFU 模式实现
 - [ ] 支持加密固件
 

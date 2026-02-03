@@ -26,7 +26,6 @@ virtualFolder:
                 - path: ../Core/Src/stm32h7xx_it.c
                 - path: ../Core/Src/stm32h7xx_hal_msp.c
                 - path: ../Core/Src/usart.c
-                - path: ../MDK-ARM/bak.c
                 - path: ../Core/Src/crc.c
                 - path: ../Core/Src/trailer.c
                 - path: ../Core/Src/boot_image.c

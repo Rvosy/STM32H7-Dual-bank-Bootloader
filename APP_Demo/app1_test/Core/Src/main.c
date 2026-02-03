@@ -26,6 +26,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "image_header.h"
+#include "app_confirm.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -104,7 +105,15 @@ int main(void)
   MX_IWDG1_Init();
   /* USER CODE BEGIN 2 */
   App_PrintVersion();
-  printf("ok\r\n");
+  if (App_IsPending()) {
+    printf("App is in PENDING state.\r\n");
+    printf("Confirming app...\r\n");
+    App_ConfirmSelf();
+  } else if (App_IsConfirmed()) {
+    printf("App is in CONFIRMED state.\r\n");
+  } else {
+    printf("App is in NEW or REJECTED state.\r\n");
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */

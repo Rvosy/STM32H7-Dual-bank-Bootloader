@@ -1,16 +1,29 @@
-#pragma once
+/**
+  ******************************************************************************
+  * @file           : app_confirm.h
+  * @brief          : App 侧确认接口
+  * @description    : 提供 App 自检通过后确认镜像的功能
+  ******************************************************************************
+  */
+
+#ifndef __APP_CONFIRM_H
+#define __APP_CONFIRM_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 /*============================================================================
- * 常量定义
+ * 常量定义 (与 Bootloader 侧保持一致)
  *============================================================================*/
 
 #define TR_MAGIC          0x544C5252u   /* 'TLRR' trailer magic */
 #define TRAILER_SIZE      0x00020000u   /* 128KB trailer 扇区大小 */
-#define MAX_ATTEMPTS      3u            /* 最大尝试次数，超过则回滚 */
 
 /*============================================================================
- * 状态机常量 (使用 #define 避免 enum 超出 int 范围)
+ * 状态机常量 (与 Bootloader 侧保持一致)
  *============================================================================*/
 
 #define TR_STATE_NEW       0xAAAA0001u   /* 新镜像，尚未尝试启动 */
@@ -21,8 +34,7 @@
 typedef uint32_t tr_state_t;
 
 /*============================================================================
- * Trailer 记录结构体 (32B 大小，贴合 STM32H7 flash word)
- * 注意：不使用 aligned(32) 以避免栈分配问题，写入时使用静态缓冲区
+ * Trailer 记录结构体 (32B 大小，与 Bootloader 侧保持一致)
  *============================================================================*/
 
 typedef struct __attribute__((packed)) {
@@ -39,38 +51,29 @@ typedef struct __attribute__((packed)) {
  *============================================================================*/
 
 /**
- * @brief  读取 trailer 扇区的最后一条有效记录
- * @param  trailer_base: trailer 扇区基地址
- * @param  out: 输出的记录指针
- * @retval 0=成功, -1=无有效记录
+ * @brief  App 自检通过后调用，将当前镜像标记为 CONFIRMED
+ * @note   此函数会：
+ *         1. 获取当前 active slot 的 trailer 基地址
+ *         2. 读取当前镜像的 CRC32
+ *         3. 追加写入 CONFIRMED 记录
+ * @retval 0=成功, -1=失败
  */
-int trailer_read_last(uint32_t trailer_base, tr_rec_t* out);
+int App_ConfirmSelf(void);
 
 /**
- * @brief  追加写入一条 trailer 记录 (32B flash word)
- * @param  trailer_base: trailer 扇区基地址
- * @param  rec: 要写入的记录
- * @retval 0=成功, -1=扇区已满需要擦除, -2=写入失败
+ * @brief  检查当前镜像是否处于 PENDING 状态
+ * @retval 1=PENDING, 0=非 PENDING 或无记录
  */
-int trailer_append(uint32_t trailer_base, const tr_rec_t* rec);
+int App_IsPending(void);
 
 /**
- * @brief  擦除 trailer 扇区 (仅在需要清空/写满时调用)
- * @param  trailer_base: trailer 扇区基地址
- * @retval 0=成功, -1=擦除失败
+ * @brief  检查当前镜像是否已 CONFIRMED
+ * @retval 1=CONFIRMED, 0=未确认
  */
-int trailer_erase(uint32_t trailer_base);
+int App_IsConfirmed(void);
 
-/**
- * @brief  检查 trailer 扇区是否写满
- * @param  trailer_base: trailer 扇区基地址
- * @retval 1=已满, 0=未满
- */
-int trailer_is_full(uint32_t trailer_base);
+#ifdef __cplusplus
+}
+#endif
 
-/**
- * @brief  获取下一个序列号
- * @param  trailer_base: trailer 扇区基地址
- * @retval 下一个序列号 (当前最大 seq + 1，若无记录则返回 1)
- */
-uint32_t trailer_next_seq(uint32_t trailer_base);
+#endif /* __APP_CONFIRM_H */

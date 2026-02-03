@@ -2,14 +2,10 @@
 #define __BOOT_SLOTS_H
 
 #include <stdint.h>
-
+#include "stm32h7xx.h"
 /*============================================================================
  * 物理地址常量 (硬件层面，不随 swap 变化)
  *============================================================================*/
-
-#define FLASH_BANK1_BASE      0x08000000u   /* Bank1 物理基地址 */
-#define FLASH_BANK2_BASE      0x08100000u   /* Bank2 物理基地址 */
-#define FLASH_BANK_SIZE       0x00100000u   /* 每个 Bank 1MB */
 
 #define BOOTLOADER_SIZE       0x00020000u   /* Bootloader 占用 128KB */
 #define SLOT_TOTAL_SIZE       0x000E0000u   /* Slot 总大小 896KB (1MB - 128KB) */
