@@ -28,6 +28,10 @@ virtualFolder:
                 - path: ../Core/Src/usart.c
                 - path: ../MDK-ARM/bak.c
                 - path: ../Core/Src/crc.c
+                - path: ../Core/Src/trailer.c
+                - path: ../Core/Src/boot_image.c
+                - path: ../Core/Src/boot_swap.c
+                - path: ../Core/Src/boot_core.c
               folders: []
     - name: Drivers
       files: []

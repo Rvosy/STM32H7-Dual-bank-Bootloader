@@ -26,7 +26,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
-#include "image_header.h"
+#include "boot_core.h"
+#include "boot_image.h"
+#include "boot_swap.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -36,16 +38,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
-/* Boot Magic - 用于软复位后识别跳转状态 */
-#define BOOT_MAGIC      0x12345678u
-
-/* Flash 分区地址 */
-#define SLOT_A_BASE     0x08020000u     /* Bank1 App 区起始 */
-#define SLOT_B_BASE     0x08120000u     /* Bank2 App 区起始 */
-
-#define APP_A_ENTRY     (SLOT_A_BASE + HDR_SIZE)
-#define APP_B_ENTRY     (SLOT_B_BASE + HDR_SIZE)
 
 /* USER CODE END PD */
 
@@ -69,282 +61,12 @@ uint32_t g_JumpInit __attribute__((at(0x20000000), zero_init));  /* 跳转标志
 void SystemClock_Config(void);
 static void MPU_Config(void);
 /* USER CODE BEGIN PFP */
-static void BankSwap_Set(uint32_t enable);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-/*============================================================================
- * 镜像验证相关函数
- *============================================================================*/
-
-/* 获取指定 Slot 的镜像头指针 */
-static inline const image_hdr_t* hdr_at(uint32_t slot_base)
-{
-    return (const image_hdr_t*)slot_base;
-}
-
-/* 检查镜像头的 Magic 和版本是否有效 */
-static int magic_ok(const image_hdr_t* h)
-{
-    return (h->magic == IMG_HDR_MAGIC) && (h->hdr_version == IMG_HDR_VER);
-}
-
-/* 检查向量表是否有效 (MSP 和 Reset Handler 地址合法性) */
-static int vector_ok(uint32_t app_entry)
-{
-    uint32_t msp   = *(volatile uint32_t*)app_entry;
-    uint32_t reset = *(volatile uint32_t*)(app_entry + 4);
-
-    /* MSP 必须指向有效的 RAM 区域 */
-    int msp_ok = ((msp & 0x2FF00000u) == 0x20000000u) ||   /* DTCM */
-                 ((msp & 0x2FF00000u) == 0x24000000u);     /* AXI SRAM */
-
-    /* Reset Handler 必须在 Flash 范围内 */
-    int reset_ok = (reset >= 0x08000000u) && (reset < 0x08200000u);
-
-    return msp_ok && reset_ok;
-}
-
-/*
- * 计算镜像 CRC32
- * @param base     Slot 基地址 (镜像头起始)
- * @param hdr_size 镜像头大小 (HDR_SIZE)
- * @param img_size 镜像体大小 (不含镜像头)
- * @return CRC32 计算结果
- */
-static uint32_t Boot_CalcCrc_Image(uint32_t base, uint32_t hdr_size, uint32_t img_size)
-{
-    const uint8_t *p = (const uint8_t *)(base + hdr_size);
-
-    __HAL_CRC_DR_RESET(&hcrc);  /* 复位 CRC 到初始值 */
-
-    uint32_t words = img_size / 4;
-    uint32_t tail  = img_size % 4;
-
-    /* 分块计算，每次 512 words = 2KB，避免看门狗超时 */
-    const uint32_t CHUNK = 512;
-    while (words) {
-        uint32_t n = (words > CHUNK) ? CHUNK : words;
-        HAL_CRC_Accumulate(&hcrc, (uint32_t *)p, n);
-        p += n * 4;
-        words -= n;
-        /* 可在此处喝狗 IWDG->KR = 0xAAAA; */
-    }
-
-    /* 处理尾部非 4 字节对齐的数据 */
-    if (tail) {
-        uint32_t last = 0xFFFFFFFFu;  /* 0xFF padding */
-        memcpy(&last, p, tail);
-        HAL_CRC_Accumulate(&hcrc, &last, 1);
-    }
-
-    return hcrc.Instance->DR;
-}
-
-/* 校验镜像 CRC */
-static int crc_ok(uint32_t slot_base, const image_hdr_t* hdr)
-{
-    /* img_size 为 0 或过大认为无效 */
-    if (hdr->img_size == 0 || hdr->img_size > (1024 * 1024 - HDR_SIZE)) {
-        printf("[CRC] 0x%08X: invalid size %u\r\n", slot_base, hdr->img_size);
-        return 0;
-    }
-    
-    /* 校验前 invalidate DCache，确保读取的是 Flash 实际内容 */
-    SCB_InvalidateDCache_by_Addr((uint32_t *)(slot_base + HDR_SIZE), hdr->img_size);
-    
-    uint32_t calc_crc = Boot_CalcCrc_Image(slot_base, HDR_SIZE, hdr->img_size);
-    
-    if (calc_crc != hdr->img_crc32) {
-        printf("[CRC] 0x%08X: FAIL (calc=0x%08X, expect=0x%08X)\r\n", 
-               slot_base, calc_crc, hdr->img_crc32);
-        return 0;
-    }
-    
-    printf("[CRC] 0x%08X: OK (0x%08X)\r\n", slot_base, calc_crc);
-    return 1;
-}
-
-/* 语义化版本比较: a > b 返回 1, a < b 返回 -1, a == b 返回 0 */
-static int semver_cmp(semver_t a, semver_t b)
-{
-    if (a.major != b.major) return (a.major > b.major) ? 1 : -1;
-    if (a.minor != b.minor) return (a.minor > b.minor) ? 1 : -1;
-    if (a.patch != b.patch) return (a.patch > b.patch) ? 1 : -1;
-    return 0;  /* build 号不参与比较 */
-}
-
-/* 镜像信息结构体 */
-typedef struct {
-    uint32_t slot_base;         /* Slot 基地址 */
-    uint32_t app_entry;         /* App 入口地址 (slot_base + HDR_SIZE) */
-    const image_hdr_t* hdr;     /* 镜像头指针 */
-    int valid;                  /* 镜像是否有效 */
-} image_t;
-
-/* 检查指定 Slot 的镜像，返回镜像信息 */
-static image_t inspect(uint32_t slot_base)
-{
-    image_t img = {
-        .slot_base = slot_base,
-        .app_entry = slot_base + HDR_SIZE,
-        .hdr       = hdr_at(slot_base),
-        .valid     = 0
-    };
-    
-    /* 校验顺序: Magic -> Vector -> CRC (越往后越耗时) */
-    if (!magic_ok(img.hdr)) {
-        return img;  /* Magic 无效，跳过后续校验 */
-    }
-    
-    if (!vector_ok(img.app_entry)) {
-        return img;  /* 向量表无效 */
-    }
-    
-    if (!crc_ok(slot_base, img.hdr)) {
-        return img;  /* CRC 校验失败 */
-    }
-    
-    img.valid = 1;
-    return img;
-}
-
-/*============================================================================
- * Bank Swap 相关函数
- *============================================================================*/
-
-/* 获取当前 Bank Swap 状态: 0=未交换, 1=已交换 */
-static uint8_t get_swap_bank_state(void)
-{
-    FLASH_OBProgramInitTypeDef ob = {0};
-    HAL_FLASHEx_OBGetConfig(&ob);
-    return (ob.USERConfig & OB_SWAP_BANK_ENABLE) ? 1 : 0;
-}
-
-/*============================================================================
- * Boot 主逻辑
- *============================================================================*/
-
-/* 选择最佳镜像并跳转 */
-void Boot_SelectAndJump(void)
-{
-    image_t A = inspect(SLOT_A_BASE);  // 0x08020000 - 当前 Bank 的 App
-    image_t B = inspect(SLOT_B_BASE);  // 0x08120000 - 另一个 Bank 的 App
-
-    printf("[Boot] Swap state: %d\r\n", get_swap_bank_state());
-    printf("[Boot] Slot A (0x%08X): %s\r\n", SLOT_A_BASE, A.valid ? "valid" : "invalid");
-    printf("[Boot] Slot B (0x%08X): %s\r\n", SLOT_B_BASE, B.valid ? "valid" : "invalid");
-
-    if (A.valid) {
-        printf("[Boot] A ver=%d.%d.%d size=%d bytes CRC32=0x%08X\r\n", 
-               A.hdr->ver.major, A.hdr->ver.minor, A.hdr->ver.patch, A.hdr->img_size, A.hdr-> img_crc32);
-    }
-    if (B.valid) {
-        printf("[Boot] B ver=%d.%d.%d size=%d bytes CRC32=0x%08X\r\n", 
-               B.hdr->ver.major, B.hdr->ver.minor, B.hdr->ver.patch, B.hdr->img_size, B.hdr->img_crc32);
-    }
-
-    // 1. 两个都无效 → 进入 DFU 模式
-    if (!A.valid && !B.valid) {
-        printf("[Boot] No valid image, entering DFU mode...\r\n");
-        while (1) {
-            HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-            HAL_Delay(100);
-        }
-    }
-
-    // 2. 判断是否需要 Bank Swap
-    //    只有当 B 有效且版本比 A 高时才需要 Swap
-    if (B.valid && (!A.valid || semver_cmp(B.hdr->ver, A.hdr->ver) > 0)) {
-        printf("[Boot] Slot B is better, need Bank Swap...\r\n");
-        
-        uint8_t current_swap = get_swap_bank_state();
-        BankSwap_Set(current_swap ? 0 : 1);  // 切换状态，会触发复位
-        // 不会返回，复位后 A/B 地址映射互换
-    }
-
-    // 3. 当前 Slot A 是最佳选择（或唯一有效的），跳转到 0x08020000
-    if (!A.valid) {
-        // 理论上不应该到这里，但做个保护
-        printf("[Boot] Error: Slot A invalid but no swap?\r\n");
-        while (1) {}
-    }
-
-    printf("[Boot] Jumping to Slot A at 0x%08X...\r\n", A.app_entry);
-    
-    /* 设置跳转参数，然后软复位 */
-    g_JumpInit = BOOT_MAGIC;
-    
-    __DSB();
-    NVIC_SystemReset();
-    
-    /* 不应到达 */
-    while (1) {}
-}
-
-/* 设置 Bank Swap 状态，会触发芯片复位 */
-static void BankSwap_Set(uint32_t enable)
-{
-    FLASH_OBProgramInitTypeDef ob = {0};
-
-    __disable_irq();
-
-    HAL_FLASH_Unlock();
-    HAL_FLASH_OB_Unlock();
-
-    /* 读取当前 Option Bytes 配置 */
-    HAL_FLASHEx_OBGetConfig(&ob);
-
-    /* 配置 Swap Bank 选项 */
-    ob.OptionType = OPTIONBYTE_USER;
-    ob.USERType   = OB_USER_SWAP_BANK;
-    ob.USERConfig = enable ? OB_SWAP_BANK_ENABLE : OB_SWAP_BANK_DISABLE;
-
-    if (HAL_FLASHEx_OBProgram(&ob) != HAL_OK) {
-        /* 编程失败，死循环 */
-        while (1) {}
-    }
-
-    /* 触发 Option Bytes 重载，此处会产生复位 */
-    if (HAL_FLASH_OB_Launch() != HAL_OK) {
-        while (1) {}
-    }
-
-    /* 如果 OB_Launch 没有立即复位，手动复位 */
-    g_JumpInit = BOOT_MAGIC;
-    NVIC_SystemReset();
-    
-    /* 永远不会执行到这里 */
-    while (1) {}
-}
-/*============================================================================
- * 跳转函数
- *============================================================================*/
-
-/* 跳转到 App (在外设初始化之前调用，状态干净) */
-static void JumpToApp(void)
-{
-    uint32_t entry = APP_A_ENTRY;
-  
-    
-    /* 设置向量表偏移 */
-    SCB->VTOR = entry;
-    
-    /* 数据同步屏障，确保所有写操作完成 */
-    __DSB();
-    __ISB();
-    
-    /* 设置主堆栈指针 */
-    __set_MSP(*(__IO uint32_t *)entry);
-    
-    /* 跳转到 Reset Handler */
-    ((void (*)(void))(*(__IO uint32_t *)(entry + 4)))();
-    
-    /* 不应到达这里 */
-    while (1) {}
-}
 /* USER CODE END 0 */
 
 /**
@@ -362,11 +84,7 @@ int main(void)
       g_JumpInit = 0;
   }
   /* 软复位后检测：如果已选好镜像，直接跳转（此时外设未初始化，状态干净）*/
-  if (g_JumpInit == BOOT_MAGIC) {
-      JumpToApp();
-  }
-
-
+  if (Boot_ShouldJump()) Boot_JumpToApp();
   
   /* USER CODE END 1 */
 
@@ -424,6 +142,7 @@ int main(void)
   printf("BBBBBBBBBBBBBBBBB      ooooooooooo      ooooooooooo             ttttttttttt  llllllll   ooooooooooo     aaaaaaaaaa  aaaa  ddddddddd   ddddd    eeeeeeeeeeeeee   rrrrrrr            \r\n");
   printf("                                                                                                                                                                                   \r\n");
   printf("===================================================================================================================================================================================\r\n");
+  
   Boot_SelectAndJump();  // 选择镜像并跳转，不会返回
 
 

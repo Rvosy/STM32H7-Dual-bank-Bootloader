@@ -74,13 +74,13 @@ targets:
         - USE_HAL_DRIVER
         - STM32H743xx
       incList:
-        - ../Core/Inc
         - ../Drivers/STM32H7xx_HAL_Driver/Inc
         - ../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy
         - ../Drivers/CMSIS/Device/ST/STM32H7xx/Include
         - ../Drivers/CMSIS/Include
         - .cmsis/include
         - ../MDK-ARM/RTE/_app1_test
+        - ../Core/Inc
       libList: []
     excludeList: []
     toolchain: AC5
@@ -203,8 +203,8 @@ targets:
         proType: 1
         speed: 8000
       OpenOCD:
-        baseAddr: "0x08000000"
-        bin: ""
+        baseAddr: "0x08020000"
+        bin: ${ProjectRoot}\Output\${ProjectName}_patched.bin
         interface: stlink
-        target: stm32h7x_dual_bank
+        target: ${workspaceFolder}/.eide/stm32h7x_dual_bank_app_norun
     uploader: OpenOCD
