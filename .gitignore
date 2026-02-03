@@ -1,81 +1,96 @@
 # ===========================
 # STM32 Bootloader .gitignore
 # ===========================
+# 工作区结构:
+#   Bootloader/        - 主 Bootloader 项目
+#   APP_Demo/app1_test - 测试 App 1
+#   APP_Demo/app2_test - 测试 App 2
+#   Tools/             - 工具脚本
 
 # ===========================
-# Keil MDK-ARM
+# Keil MDK-ARM (所有项目通用)
 # ===========================
-# Build outputs
-MDK-ARM/**/Objects/
-MDK-ARM/**/Listings/
-MDK-ARM/**/*.axf
-MDK-ARM/**/*.hex
-MDK-ARM/**/*.bin
-MDK-ARM/**/*.elf
-MDK-ARM/**/*.map
-MDK-ARM/**/*.htm
-MDK-ARM/**/*.lnp
-MDK-ARM/**/*.lst
-MDK-ARM/**/*.build_log.htm
+# 构建输出目录
+**/MDK-ARM/**/Objects/
+**/MDK-ARM/**/Listings/
+**/MDK-ARM/**/Output/
 
-# Object files and dependencies
-MDK-ARM/**/*.o
-MDK-ARM/**/*.d
-MDK-ARM/**/*.crf
-MDK-ARM/**/*.dep
+# 构建产物
+**/MDK-ARM/**/*.axf
+**/MDK-ARM/**/*.hex
+**/MDK-ARM/**/*.bin
+**/MDK-ARM/**/*.elf
+**/MDK-ARM/**/*.map
+**/MDK-ARM/**/*.htm
+**/MDK-ARM/**/*.lnp
+**/MDK-ARM/**/*.build_log.htm
 
-# Scatter file backups
-MDK-ARM/**/*.Bak
-MDK-ARM/**/Bootloader_sct.Bak
+# 目标文件和依赖
+**/MDK-ARM/**/*.o
+**/MDK-ARM/**/*.d
+**/MDK-ARM/**/*.crf
+**/MDK-ARM/**/*.dep
 
-# User GUI settings (personal preferences)
-MDK-ARM/*.uvguix.*
-MDK-ARM/**/ExtDll.iex
+# Scatter 文件备份
+**/MDK-ARM/**/*.Bak
 
-# Debug configuration (optional - remove if you want to share)
-MDK-ARM/DebugConfig/
+# 用户 GUI 设置 (个人偏好)
+**/MDK-ARM/*.uvguix.*
+**/MDK-ARM/**/ExtDll.iex
 
-# RTE component cache
-MDK-ARM/RTE/_*/
+# 调试配置
+**/MDK-ARM/DebugConfig/
 
-# Keep these files (do not ignore)
-# MDK-ARM/*.uvprojx  - Project file
-# MDK-ARM/*.uvoptx   - Options file
-# MDK-ARM/startup_*.s - Startup file
+# RTE 组件缓存
+**/MDK-ARM/RTE/_*/
+
+# 启动文件的 lst
+**/MDK-ARM/startup_*.lst
+
+# 保留这些文件 (不忽略):
+# *.uvprojx  - 项目文件
+# *.uvoptx   - 选项文件
+# startup_*.s - 启动文件
+# *.sct      - 分散加载文件
 
 # ===========================
 # EIDE (Embedded IDE for VS Code)
 # ===========================
-EIDE/build/
-EIDE/.eide/
-EIDE/**/*.o
-EIDE/**/*.d
-EIDE/**/*.hex
-EIDE/**/*.bin
-EIDE/**/*.elf
-EIDE/**/*.map
-EIDE/**/*.axf
+**/EIDE/build/
+**/EIDE/Output/
+# **/EIDE/.eide/
+# **/EIDE/.cmsis/
+# **/EIDE/.vscode/
+# **/EIDE/*.code-workspace
+
+# EIDE 构建产物
+**/EIDE/**/*.o
+**/EIDE/**/*.d
+**/EIDE/**/*.hex
+**/EIDE/**/*.bin
+**/EIDE/**/*.elf
+**/EIDE/**/*.map
+**/EIDE/**/*.axf
+
+# 保留这些文件:
+# *.sct      - 分散加载文件
+# .clang-format - 代码格式化配置
 
 # ===========================
 # STM32CubeIDE / STM32CubeMX
 # ===========================
-# STM32CubeIDE specific
 .settings/
 Debug/
 Release/
 *.launch
 
-# STM32CubeMX backup files
+# STM32CubeMX 备份文件
 *.ioc.bak
 
 # ===========================
-# Compiler outputs (general)
+# 编译器输出 (通用)
 # ===========================
-*.o
 *.obj
-*.elf
-*.map
-*.lst
 *.i
 *.s.bak
 
@@ -88,7 +103,22 @@ Release/
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/c_cpp_properties.json
-*.code-workspace
+
+# 根目录工作区文件保留
+# Bootloader.code-workspace
+
+# ===========================
+# Python
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+*.egg-info/
+.eggs/
+venv/
+.env
 
 # ===========================
 # Windows
@@ -113,7 +143,7 @@ $RECYCLE.BIN/
 .directory
 
 # ===========================
-# IDE / Editor specific
+# IDE / Editor
 # ===========================
 # JetBrains IDEs
 .idea/
@@ -124,18 +154,17 @@ $RECYCLE.BIN/
 .pydevproject
 
 # ===========================
-# Backup and temporary files
+# 备份和临时文件
 # ===========================
 *.bak
 *.tmp
 *.temp
 *.swp
 *.swo
-*~
 
 # ===========================
-# Binary outputs (keep in separate release folder)
+# 固件二进制输出
 # ===========================
-# Uncomment if you don't want to track firmware binaries
+# 如果不想跟踪固件二进制文件，取消下面的注释
 # *.hex
 # *.bin

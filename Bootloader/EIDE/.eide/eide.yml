@@ -1,0 +1,274 @@
+version: "4.1"
+name: Bootloader
+type: ARM
+deviceName: null
+packDir: null
+srcDirs: []
+virtualFolder:
+  name: <virtual_root>
+  files: []
+  folders:
+    - name: Application
+      files: []
+      folders:
+        - name: MDK-ARM
+          files:
+            - path: ../MDK-ARM/startup_stm32h743xx.s
+          folders: []
+        - name: User
+          files: []
+          folders:
+            - name: Core
+              files:
+                - path: ../Core/Src/main.c
+                - path: ../Core/Src/gpio.c
+                - path: ../Core/Src/memorymap.c
+                - path: ../Core/Src/stm32h7xx_it.c
+                - path: ../Core/Src/stm32h7xx_hal_msp.c
+                - path: ../Core/Src/usart.c
+                - path: ../MDK-ARM/bak.c
+                - path: ../Core/Src/crc.c
+                - path: ../Core/Src/main1.c
+              folders: []
+    - name: Drivers
+      files: []
+      folders:
+        - name: STM32H7xx_HAL_Driver
+          files:
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash_ex.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_gpio.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_hsem.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma_ex.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mdma.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr_ex.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c_ex.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_exti.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_usart.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_usart_ex.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_exti.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_crc.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_crc_ex.c
+          folders: []
+        - name: CMSIS
+          files:
+            - path: ../Core/Src/system_stm32h7xx.c
+          folders: []
+        - name: User
+          files:
+            - path: ../Drivers/User/Src/lcd_fonts.c
+            - path: ../Drivers/User/Src/lcd_image.c
+            - path: ../Drivers/User/Src/lcd_pwm.c
+            - path: ../Drivers/User/Src/lcd_rgb.c
+            - path: ../Drivers/User/Src/lcd_test.c
+            - path: ../Drivers/User/Src/led.c
+            - path: ../Drivers/User/Src/sdram.c
+            - path: ../Drivers/User/Src/usart.c
+          folders: []
+    - name: ::CMSIS
+      files: []
+      folders: []
+dependenceList: []
+outDir: build
+miscInfo:
+  uid: 215d89b62acd6437c0b8af9864d32663
+targets:
+  Bootloader:
+    cppPreprocessAttrs:
+      defineList:
+        - USE_PWR_LDO_SUPPLY
+        - USE_HAL_DRIVER
+        - STM32H743xx
+      incList:
+        - ../Core/Inc
+        - ../Drivers/STM32H7xx_HAL_Driver/Inc
+        - ../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy
+        - ../Drivers/CMSIS/Device/ST/STM32H7xx/Include
+        - ../Drivers/CMSIS/Include
+        - .cmsis/include
+        - ../MDK-ARM/RTE/_Bootloader
+        - ../Drivers/User/Inc
+      libList: []
+    excludeList:
+      - <virtual_root>/Drivers/User
+      - <virtual_root>/Application/User/Core/bak.c
+      - <virtual_root>/Application/User/Core/main1.c
+    toolchain: AC5
+    toolchainConfigMap:
+      AC5:
+        archExtensions: ""
+        cpuType: Cortex-M7
+        floatingPointHardware: double
+        options:
+          version: 4
+          afterBuildTasks:
+            - name: bin
+              abortAfterFailed: false
+              command: fromelf --bin -o ${ExecutableName}.bin ${ExecutableName}.elf
+              disable: false
+          asm-compiler:
+            $use: asm-auto
+          beforeBuildTasks: []
+          c/cpp-compiler:
+            c99-mode: true
+            language-c: c99
+            language-cpp: c++11
+            optimization: level-0
+            warnings: ac5-like-warnings
+          global:
+            output-debug-info: enable
+            use-microLIB: true
+          linker:
+            $outputTaskExcludes:
+              - .bin
+            misc-controls: --diag_suppress=L6329
+            output-format: elf
+        scatterFilePath: build\Bootloader\Bootloader.sct
+        storageLayout:
+          RAM:
+            - id: 1
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 2
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 3
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 1
+              isChecked: true
+              mem:
+                size: "0x20000"
+                startAddr: "0x20000000"
+              noInit: true
+              tag: IRAM
+            - id: 2
+              isChecked: true
+              mem:
+                size: "0x80000"
+                startAddr: "0x24000000"
+              noInit: false
+              tag: IRAM
+          ROM:
+            - id: 1
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 2
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 3
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 1
+              isChecked: true
+              isStartup: true
+              mem:
+                size: "0x020000"
+                startAddr: "0x8000000"
+              tag: IROM
+            - id: 2
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: IROM
+        useCustomScatterFile: false
+      AC6:
+        archExtensions: ""
+        cpuType: Cortex-M7
+        floatingPointHardware: double
+        options:
+          version: 3
+          afterBuildTasks: []
+          asm-compiler:
+            $use: asm-auto
+          beforeBuildTasks: []
+          c/cpp-compiler:
+            language-c: c99
+            language-cpp: c++11
+            optimization: level-3
+            warnings: ac5-like-warnings
+          global:
+            output-debug-info: enable
+            use-microLIB: true
+          linker:
+            $outputTaskExcludes:
+              - .bin
+            misc-controls: --diag_suppress=L6329
+            output-format: elf
+        scatterFilePath: <YOUR_SCATTER_FILE>.sct
+        storageLayout:
+          RAM:
+            - id: 1
+              isChecked: true
+              mem:
+                size: "0x20000"
+                startAddr: "0x20000000"
+              noInit: false
+              tag: IRAM
+            - id: 2
+              isChecked: true
+              mem:
+                size: "0x80000"
+                startAddr: "0x24000000"
+              noInit: false
+              tag: IRAM
+          ROM:
+            - id: 1
+              isChecked: true
+              isStartup: true
+              mem:
+                size: "0x020000"
+                startAddr: "0x8000000"
+              tag: IROM
+        useCustomScatterFile: false
+    uploadConfigMap:
+      JLink:
+        baseAddr: ""
+        bin: ""
+        cpuInfo:
+          cpuName: "null"
+          vendor: "null"
+        otherCmds: ""
+        proType: 1
+        speed: 8000
+      OpenOCD:
+        baseAddr: "0x08000000"
+        bin: ""
+        interface: stlink
+        target: stm32h7x_dual_bank
+    uploader: OpenOCD
