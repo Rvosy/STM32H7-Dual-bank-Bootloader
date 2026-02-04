@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "cwd": "${workspaceRoot}",
+            "type": "cortex-debug",
+            "request": "launch",
+            "name": "app1_test: OpenOCD",
+            "servertype": "openocd",
+            "executable": "build/app1_test/app1_test.elf",
+            "runToEntryPoint": "main",
+            "configFiles": [
+                "interface/stlink.cfg",
+                ".eide/stm32h7x_dual_bank_app_norun.cfg"
+            ]
+        }
+    ]
+}

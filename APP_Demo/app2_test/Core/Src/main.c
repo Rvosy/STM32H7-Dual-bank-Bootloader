@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
 #include "memorymap.h"
 #include "usart.h"
 #include "gpio.h"
@@ -26,6 +27,7 @@
 /* USER CODE BEGIN Includes */
 #include "image_header.h"
 #include "app_confirm.h"
+#include "iap_upgrade.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,6 +47,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+
+/* 环形缓冲区 (2KB) */
+static uint8_t uart_rx_buf[2048];
+static ringbuf_t uart_rb;
+
+uint32_t g_JumpInit __attribute__((at(0x20000000), zero_init));  /* 跳转标志 */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -91,6 +99,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   App_PrintVersion();
@@ -103,12 +112,32 @@ int main(void)
   } else {
     printf("App is in NEW or REJECTED state.\r\n");
   }
+  /* 初始化环形缓冲区 */
+  RingBuf_Init(&uart_rb, uart_rx_buf, sizeof(uart_rx_buf));
+  
+  /* 启动 DMA 循环接收 */
+  HAL_UART_Receive_DMA(&huart1, uart_rx_buf, sizeof(uart_rx_buf));
+  
+  printf("System ready. Send 'U' to start firmware upgrade.\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    RingBuf_UpdateHead_DMA(&uart_rb, __HAL_DMA_GET_COUNTER(huart1.hdmarx));
+    int ch = RingBuf_GetChar(&uart_rb);
+    if (ch == 'U') {
+          /* 擦除 inactive slot */
+      if (IAP_EraseSlot() != 0) {
+          printf("Failed to erase slot!\r\n");
+      }
+      int result = IAP_UpgradeViaYmodem(&uart_rb, 15000);
+      if (result == 0) {
+        g_JumpInit = 0;
+        NVIC_SystemReset();
+      }
+    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

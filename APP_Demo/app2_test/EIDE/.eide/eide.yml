@@ -28,6 +28,12 @@ virtualFolder:
                 - path: ../Core/Src/stm32h7xx_hal_msp.c
                 - path: ../Core/Src/image_header.c
                 - path: ../Core/Src/app_confirm.c
+                - path: ../Core/Src/iap_write.c
+                - path: ../Core/Src/ringbuf.c
+                - path: ../Core/Src/ymodem.c
+                - path: ../Core/Src/ymodem_port.c
+                - path: ../Core/Src/iap_upgrade.c
+                - path: ../Core/Src/dma.c
               folders: []
     - name: Drivers
       files: []

@@ -282,8 +282,8 @@ int IAP_Begin(iap_writer_t* w, uint32_t dst_base, uint32_t dst_size)
     w->fill  = 0;
     memset(w->buf32, 0xFF, sizeof(w->buf32));  /* 填充 0xFF */
     
-    printf("[IAP] Write session started: 0x%08lX - 0x%08lX\r\n",
-           (unsigned long)w->base, (unsigned long)w->limit);
+    // printf("[IAP] Write session started: 0x%08lX - 0x%08lX\r\n",
+    //        (unsigned long)w->base, (unsigned long)w->limit);
     
     return 0;
 }

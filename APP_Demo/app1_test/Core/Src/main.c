@@ -18,8 +18,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
 #include "iwdg.h"
 #include "memorymap.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -27,7 +29,8 @@
 /* USER CODE BEGIN Includes */
 #include "image_header.h"
 #include "app_confirm.h"
-#include "iap_write.h"
+#include "lwrb.h"
+#include "iap_upgrade.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,7 +50,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+/* 环形缓冲区 (2KB) */
+__attribute__((aligned(32))) static uint8_t dma_rx_buf[256];
+static uint8_t rb_buf[2048];
+static lwrb_t uart_rb;
+static uint16_t old_pos = 0;
+uint32_t g_JumpInit __attribute__((at(0x20000000), zero_init));  /* 跳转标志 */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -59,6 +67,19 @@ void App_PrintVersion(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static inline void dcache_invalidate(void* addr, uint32_t len)
+{
+    uint32_t a = (uint32_t)addr;
+    uint32_t start = a & ~31U;
+    uint32_t end = (a + len + 31U) & ~31U;
+    SCB_InvalidateDCache_by_Addr((uint32_t*)start, end - start);
+}
+void UartDmaRx_ResetPos(void)
+{
+    // 读取 DMA 当前已经写到的位置
+    uint16_t pos = (uint16_t)(sizeof(dma_rx_buf) - __HAL_DMA_GET_COUNTER(huart1.hdmarx));
+    old_pos = pos;
+}
 
 /* USER CODE END 0 */
 
@@ -70,7 +91,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-iap_writer_t writer;
   /* USER CODE END 1 */
 
   /* MPU Configuration--------------------------------------------------------*/
@@ -97,36 +117,65 @@ iap_writer_t writer;
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  /* 初始化环形缓冲区 */
+  lwrb_init(&uart_rb, rb_buf, sizeof(rb_buf));
+  /* 启动 DMA 循环接收 */
+  HAL_UART_Receive_DMA(&huart1, dma_rx_buf, sizeof(dma_rx_buf));
+  /* 启动定时器中断 */
+  
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART1_UART_Init();
-  //MX_IWDG1_Init();
+  MX_IWDG1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+  lwrb_init(&uart_rb, rb_buf, sizeof(rb_buf));
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buf, sizeof(dma_rx_buf));
+
   App_PrintVersion();
   if (App_IsPending()) {
     printf("App is in PENDING state.\r\n");
     printf("Confirming app...\r\n");
     App_ConfirmSelf();
   } else if (App_IsConfirmed()) {
-    printf("App is in CONFIRMED state.\r\n");
+    printf("App is in CONFIRMED state."   );
   } else {
     printf("App is in NEW or REJECTED state.\r\n");
   }
   //IAP_EraseSlot();
-  //iap写入16进制测试数据
-  IAP_Begin(&writer, IAP_GetInactiveSlotBase(), 1024);  // 预留 1KB 空间
-  IAP_Write(&writer, (const uint8_t *)"\xDE\xAD\xBE\xEF\xCA\xFE\xBA\xBE", 8);
-  IAP_End(&writer);
+  // //iap写入16进制测试数据
+  // IAP_Begin(&writer, IAP_GetInactiveSlotBase(), 1024);  // 预留 1KB 空间
+  // IAP_Write(&writer, (const uint8_t *)"\xDE\xAD\xBE\xEF\xCA\xFE\xBA\xBE", 8);
+  // IAP_End(&writer);
+  
+
+  //printf("System ready. Send 'U' to start firmware upgrade.\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  //HAL_IWDG_Refresh(&hiwdg1);
+    //HAL_IWDG_Refresh(&hiwdg1);
+    /* 读取一个字符 (环形缓冲区中有数据时才会返回) */
+    uint8_t ch_byte;
+    int ch = (lwrb_read(&uart_rb, &ch_byte, 1) == 1) ? (int)ch_byte : -1;
+    if (ch == 'U') {
+      /* 擦除 inactive slot */
+      if (IAP_EraseSlot() != 0) {
+          printf("Failed to erase slot!\r\n");
+      }
+      lwrb_reset(&uart_rb);
+      UartDmaRx_ResetPos();
+      int result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
+      if (result == 0) {
+        g_JumpInit = 0;
+        NVIC_SystemReset();
+      }
+    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -201,6 +250,39 @@ void App_PrintVersion(void){
 		   (unsigned)g_image_header.ver.patch,
 		   (unsigned long)g_image_header.ver.build);
 }
+
+
+/*--- UART 空闲中断回调 ---*/
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+    if (huart->Instance != USART1) return;
+
+    uint16_t pos = (uint16_t)(sizeof(dma_rx_buf) - __HAL_DMA_GET_COUNTER(huart->hdmarx));
+
+    dcache_invalidate(dma_rx_buf, sizeof(dma_rx_buf));
+
+    if (pos != old_pos) {
+        if (pos > old_pos) {
+            lwrb_write(&uart_rb, &dma_rx_buf[old_pos], pos - old_pos);
+        } else {
+            lwrb_write(&uart_rb, &dma_rx_buf[old_pos], sizeof(dma_rx_buf) - old_pos);
+            if (pos > 0) lwrb_write(&uart_rb, &dma_rx_buf[0], pos);
+        }
+        old_pos = pos;
+    }
+}
+
+
+
+//定时器中断回调
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim == &htim2) {
+      //printf("Watchdog refreshed.\r\n");
+      HAL_IWDG_Refresh(&hiwdg1);
+    }
+}
+
 /* USER CODE END 4 */
 
  /* MPU Configuration */

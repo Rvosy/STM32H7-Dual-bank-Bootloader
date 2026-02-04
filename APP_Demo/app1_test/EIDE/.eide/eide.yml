@@ -31,6 +31,13 @@ virtualFolder:
                 - path: ../Core/Src/key.c
                 - path: ../Core/Src/app_confirm.c
                 - path: ../Core/Src/iap_write.c
+                - path: ../Core/Src/ymodem.c
+                - path: ../Core/Src/dma.c
+                - path: ../Core/Src/ringbuf.c
+                - path: ../Core/Src/ymodem_port.c
+                - path: ../Core/Src/iap_upgrade.c
+                - path: ../Core/Src/tim.c
+                - path: ../Core/Src/lwrb.c
               folders: []
     - name: Drivers
       files: []
@@ -56,6 +63,8 @@ virtualFolder:
             - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_exti.c
             - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.c
             - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.c
           folders: []
         - name: CMSIS
           files:
