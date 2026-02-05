@@ -20,7 +20,6 @@ virtualFolder:
           folders:
             - name: Core
               files:
-                - path: ../Core/Src/image_header.c
                 - path: ../Core/Src/main.c
                 - path: ../Core/Src/gpio.c
                 - path: ../Core/Src/iwdg.c
@@ -28,16 +27,16 @@ virtualFolder:
                 - path: ../Core/Src/usart.c
                 - path: ../Core/Src/stm32h7xx_it.c
                 - path: ../Core/Src/stm32h7xx_hal_msp.c
-                - path: ../Core/Src/key.c
-                - path: ../Core/Src/app_confirm.c
                 - path: ../Core/Src/iap_write.c
                 - path: ../Core/Src/ymodem.c
                 - path: ../Core/Src/dma.c
-                - path: ../Core/Src/ringbuf.c
                 - path: ../Core/Src/ymodem_port.c
                 - path: ../Core/Src/iap_upgrade.c
                 - path: ../Core/Src/tim.c
                 - path: ../Core/Src/lwrb.c
+                - path: ../Core/Src/image_meta.c
+                - path: ../Core/Src/app_confirm.c
+                - path: ../Core/Src/image_header.c
               folders: []
     - name: Drivers
       files: []
@@ -93,7 +92,9 @@ targets:
         - ../MDK-ARM/RTE/_app1_test
         - ../Core/Inc
       libList: []
-    excludeList: []
+    excludeList:
+      - <virtual_root>/Application/User/Core/ringbuf.c
+      - <virtual_root>/Application/User/Core/image_meta.c
     toolchain: AC5
     toolchainConfigMap:
       AC5:
@@ -218,4 +219,14 @@ targets:
         bin: ${ProjectRoot}\Output\${ProjectName}_patched.bin
         interface: stlink
         target: ${workspaceFolder}/.eide/stm32h7x_dual_bank_app_norun
+      STLink:
+        address: "0x08020000"
+        bin: ${ProjectRoot}\Output\${ProjectName}_patched.bin
+        elFile: None
+        optionBytes: .eide/app1_test.st.option.bytes.ini
+        otherCmds: ""
+        proType: SWD
+        resetMode: default
+        runAfterProgram: true
+        speed: 4000
     uploader: OpenOCD
