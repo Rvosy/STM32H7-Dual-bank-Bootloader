@@ -32,6 +32,12 @@ virtualFolder:
                 - path: ../Core/Src/boot_swap.c
                 - path: ../Core/Src/boot_core.c
                 - path: ../Core/Src/boot_slots.c
+                - path: ../Core/Src/iap_upgrade.c
+                - path: ../Core/Src/iap_write.c
+                - path: ../Core/Src/lwrb.c
+                - path: ../Core/Src/multi_button.c
+                - path: ../Core/Src/ymodem.c
+                - path: ../Core/Src/ymodem_port.c
               folders: []
     - name: Drivers
       files: []

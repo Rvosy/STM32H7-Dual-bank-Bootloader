@@ -6,8 +6,7 @@
   ******************************************************************************
   */
 
-#include "app_confirm.h"
-#include "image_header.h"
+#include "image_meta.h"
 #include "stm32h7xx_hal.h"
 #include <string.h>
 
@@ -26,10 +25,21 @@
 #define ACTIVE_SLOT_BASE      (FLASH_BANK1_BASE + BOOTLOADER_SIZE)
 #define ACTIVE_TRAILER_BASE   (ACTIVE_SLOT_BASE + SLOT_TOTAL_SIZE - TRAILER_SIZE)
 
-/*============================================================================
- * 内部函数
- *============================================================================*/
 
+__attribute__((section(".app_header"), used, aligned(4)))
+const image_hdr_t g_image_header = {
+    .magic       = IMG_HDR_MAGIC,
+    .hdr_version = IMG_HDR_VER,
+    .flags       = 0xFFFFu,
+    .ver         = { .major=6u, .minor=2u, .patch=1u, .reserved=0u, .build=123u },
+    .img_size    = 0u,   // 后续可由升级/脚本回填
+    .img_crc32   = 0u,
+};
+
+
+/*============================================================================
+ * 内部函数实现
+ *============================================================================*/
 /**
  * @brief  检查记录是否有效
  */

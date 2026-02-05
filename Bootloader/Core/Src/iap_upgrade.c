@@ -23,7 +23,7 @@ static iap_writer_t s_iap_writer;
 
 static int on_begin(const char* name, uint32_t size)
 {
-    //printf("Receiving: %s (%lu bytes)\r\n", name, (unsigned long)size);  
+    printf("Receiving: %s (%lu bytes)\r\n", name, (unsigned long)size); 
     /* 初始化写入器 */
     return IAP_Begin(&s_iap_writer, IAP_GetInactiveSlotBase(), size);
 }

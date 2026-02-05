@@ -1,18 +1,21 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "cwd": "${workspaceRoot}",
-            "type": "cortex-debug",
-            "request": "launch",
-            "name": "app1_test: OpenOCD",
-            "servertype": "openocd",
-            "executable": "build/app1_test/app1_test.elf",
-            "runToEntryPoint": "main",
-            "configFiles": [
-                "interface/stlink.cfg",
-                ".eide/stm32h7x_dual_bank_app_norun.cfg"
-            ]
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "app1_test: ST-LINK (attach, no flash)",
+      "type": "cortex-debug",
+      "request": "attach",
+      "servertype": "stlink",
+      "executable": "build/app1_test/app1_test.elf",
+      "gdbTarget": "localhost:50000",
+      "showDevDebugOutput": "raw",
+
+      "postAttachCommands": [
+        "set *(unsigned int*)0xE000ED08 = 0x08020200",
+        "set $msp = *(unsigned int*)0x08020200",
+        "set $pc  = *(unsigned int*)0x08020204"
+      ]
+    }
+  ]
 }
+
