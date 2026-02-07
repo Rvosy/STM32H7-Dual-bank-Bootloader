@@ -43,13 +43,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-void App_PrintVersion(void){
-	printf("FW v%u.%u.%u (build=%lu)\r\n",
-		   (unsigned)g_image_header.ver.major,
-		   (unsigned)g_image_header.ver.minor,
-		   (unsigned)g_image_header.ver.patch,
-		   (unsigned long)g_image_header.ver.build);
-}
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
