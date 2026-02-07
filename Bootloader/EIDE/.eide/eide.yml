@@ -27,18 +27,6 @@ virtualFolder:
                 - path: ../Core/Src/stm32h7xx_hal_msp.c
                 - path: ../Core/Src/usart.c
                 - path: ../Core/Src/crc.c
-                - path: ../Core/Src/trailer.c
-                - path: ../Core/Src/boot_image.c
-                - path: ../Core/Src/boot_swap.c
-                - path: ../Core/Src/boot_core.c
-                - path: ../Core/Src/boot_slots.c
-                - path: ../Core/Src/iap_upgrade.c
-                - path: ../Core/Src/iap_write.c
-                - path: ../Core/Src/lwrb.c
-                - path: ../Core/Src/multi_button.c
-                - path: ../Core/Src/ymodem.c
-                - path: ../Core/Src/ymodem_port.c
-                - path: ../Core/Src/key.c
                 - path: ../Core/Src/tim.c
                 - path: ../Core/Src/system_stm32h7xx.c
               folders: []
@@ -79,14 +67,18 @@ virtualFolder:
           folders: []
         - name: User
           files:
-            - path: ../Drivers/User/Src/lcd_fonts.c
-            - path: ../Drivers/User/Src/lcd_image.c
-            - path: ../Drivers/User/Src/lcd_pwm.c
-            - path: ../Drivers/User/Src/lcd_rgb.c
-            - path: ../Drivers/User/Src/lcd_test.c
-            - path: ../Drivers/User/Src/led.c
-            - path: ../Drivers/User/Src/sdram.c
-            - path: ../Drivers/User/Src/usart.c
+            - path: ../Drivers/User/boot/Src/boot_core.c
+            - path: ../Drivers/User/boot/Src/boot_image.c
+            - path: ../Drivers/User/boot/Src/boot_slots.c
+            - path: ../Drivers/User/boot/Src/boot_swap.c
+            - path: ../Drivers/User/boot/Src/trailer.c
+            - path: ../Drivers/User/iap/Src/iap_upgrade.c
+            - path: ../Drivers/User/iap/Src/iap_write.c
+            - path: ../Drivers/User/key/Src/key.c
+            - path: ../Drivers/User/key/Src/multi_button.c
+            - path: ../Drivers/User/lwrb/Src/lwrb.c
+            - path: ../Drivers/User/ymodem/Src/ymodem.c
+            - path: ../Drivers/User/ymodem/Src/ymodem_port.c
           folders: []
     - name: ::CMSIS
       files: []
@@ -111,9 +103,13 @@ targets:
         - .cmsis/include
         - ../MDK-ARM/RTE/_Bootloader
         - ../Drivers/User/Inc
+        - ../Drivers/User/boot/Inc
+        - ../Drivers/User/iap/Inc
+        - ../Drivers/User/key/Inc
+        - ../Drivers/User/lwrb/Inc
+        - ../Drivers/User/ymodem/Inc
       libList: []
     excludeList:
-      - <virtual_root>/Drivers/User
       - <virtual_root>/Application/User/Core/bak.c
       - <virtual_root>/Application/User/Core/main1.c
       - <virtual_root>/Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_exti.c
