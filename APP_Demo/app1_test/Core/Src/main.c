@@ -127,29 +127,34 @@ int main(void)
   //MX_IWDG1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  // lwrb_init(&uart_rb, rb_buf, sizeof(rb_buf));
-  // HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buf, sizeof(dma_rx_buf));
-
+  lwrb_init(&uart_rb, rb_buf, sizeof(rb_buf));
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buf, sizeof(dma_rx_buf));
   App_PrintVersion();
-  
+  App_DebugTrailer();
   if (App_IsPending()) {
     printf("App is in PENDING state.\r\n");
     printf("Confirming app...\r\n");
+    if (App_ConfirmSelf() == 0) {
+      printf("App confirmed successfully.\r\n");
+    } else {
+      printf("Failed to confirm app!\r\n");
+    }
     
   } else if (App_IsConfirmed()) {
-    printf("App is in CONFIRMED state."   );
+    printf("App is in CONFIRMED state.\r\n");
   } else {
     printf("App is in NEW or REJECTED state.\r\n");
   }
-  App_ConfirmSelf();
-  //IAP_EraseSlot();
-  // //iap写入16进制测试数据
-  // IAP_Begin(&writer, IAP_GetInactiveSlotBase(), 1024);  // 预留 1KB 空间
-  // IAP_Write(&writer, (const uint8_t *)"\xDE\xAD\xBE\xEF\xCA\xFE\xBA\xBE", 8);
-  // IAP_End(&writer);
-  
 
-  //printf("System ready. Send 'U' to start firmware upgrade.\r\n");
+  //测试trailer写入
+  // for(int i=0; i<4095; i++) {
+  //   if(App_ConfirmSelf()==-1){
+  //     printf("App confirm failed at %d\r\n", i);
+  //   }
+  // }
+  //App_DebugTrailer();
+
+  printf("System ready. Send 'U' to start firmware upgrade.\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -157,22 +162,22 @@ int main(void)
   while (1)
   {
     //HAL_IWDG_Refresh(&hiwdg1);
-    // /* 读取一个字符 (环形缓冲区中有数据时才会返回) */
-    // uint8_t ch_byte;
-    // int ch = (lwrb_read(&uart_rb, &ch_byte, 1) == 1) ? (int)ch_byte : -1;
-    // if (ch == 'U') {
-    //   /* 擦除 inactive slot */
-    //   if (IAP_EraseSlot() != 0) {
-    //       printf("Failed to erase slot!\r\n");
-    //   }
-    //   lwrb_reset(&uart_rb);
-    //   UartDmaRx_ResetPos();
-    //   int result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
-    //   if (result == 0) {
-    //     g_JumpInit = 0;
-    //     NVIC_SystemReset();
-    //   }
-    // }
+    /* 读取一个字符 (环形缓冲区中有数据时才会返回) */
+    uint8_t ch_byte;
+    int ch = (lwrb_read(&uart_rb, &ch_byte, 1) == 1) ? (int)ch_byte : -1;
+    if (ch == 'U') {
+      /* 擦除 inactive slot */
+      if (IAP_EraseSlot() != 0) {
+          printf("Failed to erase slot!\r\n");
+      }
+      lwrb_reset(&uart_rb);
+      UartDmaRx_ResetPos();
+      int result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
+      if (result == 0) {
+        g_JumpInit = 0;
+        NVIC_SystemReset();
+      }
+    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -240,13 +245,7 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void App_PrintVersion(void){
-	printf("FW v%u.%u.%u (build=%lu)\r\n",
-		   (unsigned)g_image_header.ver.major,
-		   (unsigned)g_image_header.ver.minor,
-		   (unsigned)g_image_header.ver.patch,
-		   (unsigned long)g_image_header.ver.build);
-}
+
 
 
 /*--- UART 空闲中断回调 ---*/

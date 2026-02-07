@@ -92,6 +92,7 @@ targets:
       libList: []
     excludeList:
       - <virtual_root>/Application/User/Core/ringbuf.c
+      - <virtual_root>/Application/User/Core/app_confirm.c
       - <virtual_root>/Application/User/Core/image_header.c
     toolchain: AC5
     toolchainConfigMap:
@@ -118,7 +119,7 @@ targets:
             c99-mode: true
             gnu-extensions: true
             one-elf-section-per-function: true
-            optimization: level-3
+            optimization: level-0
             warnings: all-warnings
           global:
             output-debug-info: enable
