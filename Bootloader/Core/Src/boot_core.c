@@ -196,7 +196,7 @@ void Boot_JumpToApp(void)
     /* 获取活动 Slot，计算 App 入口 */
     slot_info_t active = Boot_GetActiveSlot();
     uint32_t entry = Boot_GetAppEntry(active, HDR_SIZE);
-    __disable_irq(); 
+    //__disable_irq(); 
     /* 设置向量表偏移 */
     SCB->VTOR = entry;
     

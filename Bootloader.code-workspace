@@ -16,5 +16,8 @@
               "name": "app2_test",
               "path": "APP_Demo/app2_test/EIDE"
           }
-    ]
+    ],
+    "settings": {
+        "cortex-debug.variableUseNaturalFormat": true
+    }
 }
