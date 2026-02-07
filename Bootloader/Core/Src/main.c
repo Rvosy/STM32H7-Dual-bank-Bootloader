@@ -20,6 +20,7 @@
 #include "main.h"
 #include "crc.h"
 #include "memorymap.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -29,6 +30,7 @@
 #include "boot_core.h"
 #include "boot_image.h"
 #include "boot_swap.h"
+#include "key.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,12 +51,16 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+uint32_t cnt = 0;
 
 /*
  * 跨软复位保持的变量 (zero_init)
  * 放置在 DTCM RAM 固定地址，软复位后不会被清零
  */
 uint32_t g_JumpInit __attribute__((at(0x20000000), zero_init));  /* 跳转标志 */
+
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -123,6 +129,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_CRC_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 
   printf("===================================================================================================================================================================================\r\n");
@@ -146,7 +153,8 @@ int main(void)
   printf("BBBBBBBBBBBBBBBBB      ooooooooooo      ooooooooooo             ttttttttttt  llllllll   ooooooooooo     aaaaaaaaaa  aaaa  ddddddddd   ddddd    eeeeeeeeeeeeee   rrrrrrr            \r\n");
   printf("                                                                                                                                                                                   \r\n");
   printf("===================================================================================================================================================================================\r\n");
-  
+  HAL_TIM_Base_Start_IT(&htim5); 
+  Key_Init();
   Boot_SelectAndJump();  // 选择镜像并跳转，不会返回
 
 
@@ -159,6 +167,7 @@ int main(void)
   while (1)
   {
     HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+    //printf("%d\r\n", cnt);
     HAL_Delay(50);
     /* USER CODE END WHILE */
 

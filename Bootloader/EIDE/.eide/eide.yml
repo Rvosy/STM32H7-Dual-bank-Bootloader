@@ -32,6 +32,15 @@ virtualFolder:
                 - path: ../Core/Src/boot_swap.c
                 - path: ../Core/Src/boot_core.c
                 - path: ../Core/Src/boot_slots.c
+                - path: ../Core/Src/iap_upgrade.c
+                - path: ../Core/Src/iap_write.c
+                - path: ../Core/Src/lwrb.c
+                - path: ../Core/Src/multi_button.c
+                - path: ../Core/Src/ymodem.c
+                - path: ../Core/Src/ymodem_port.c
+                - path: ../Core/Src/key.c
+                - path: ../Core/Src/tim.c
+                - path: ../Core/Src/system_stm32h7xx.c
               folders: []
     - name: Drivers
       files: []
@@ -61,6 +70,8 @@ virtualFolder:
             - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.c
             - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_crc.c
             - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_crc_ex.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.c
+            - path: ../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.c
           folders: []
         - name: CMSIS
           files:
@@ -105,9 +116,9 @@ targets:
       - <virtual_root>/Drivers/User
       - <virtual_root>/Application/User/Core/bak.c
       - <virtual_root>/Application/User/Core/main1.c
+      - <virtual_root>/Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_exti.c
       - <virtual_root>/Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_usart_ex.c
       - <virtual_root>/Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_usart.c
-      - <virtual_root>/Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_exti.c
     toolchain: AC5
     toolchainConfigMap:
       AC5:

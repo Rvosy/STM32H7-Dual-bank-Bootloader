@@ -5,19 +5,6 @@
             "cwd": "${workspaceRoot}",
             "type": "cortex-debug",
             "request": "launch",
-            "name": "Bootloader: OpenOCD1",
-            "servertype": "openocd",
-            "executable": "build/Bootloader/Bootloader.elf",
-            "runToEntryPoint": "main",
-            "configFiles": [
-                "interface/stlink.cfg",
-                "target/stm32h7x_dual_bank.cfg"
-            ]
-        },
-        {
-            "cwd": "${workspaceRoot}",
-            "type": "cortex-debug",
-            "request": "launch",
             "name": "Bootloader: OpenOCD",
             "servertype": "openocd",
             "executable": "build/Bootloader/Bootloader.elf",
@@ -26,6 +13,19 @@
                 "interface/stlink.cfg",
                 "target/stm32h7x.cfg"
             ]
+        },
+        {
+        "name": "Bootloader: ST-LINK",
+        "type": "cortex-debug",
+        "request": "attach",
+        "servertype": "stlink",
+        "executable": "build/Bootloader/Bootloader.elf",
+        "gdbTarget": "localhost:50000",
+        "showDevDebugOutput": "raw",
+        "postAttachCommands": [
+
+        ]
         }
+
     ]
 }

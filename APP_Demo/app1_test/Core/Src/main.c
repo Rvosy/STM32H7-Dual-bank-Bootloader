@@ -27,10 +27,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "image_header.h"
-#include "app_confirm.h"
-#include "lwrb.h"
+#include "image_meta.h"
 #include "iap_upgrade.h"
+#include "lwrb.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -97,6 +96,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  //SCB->VTOR = 0x08020200; // 设置向量表偏移地址
   /* USER CODE END 1 */
 
   /* MPU Configuration--------------------------------------------------------*/
@@ -105,10 +105,10 @@ int main(void)
   /* Enable the CPU Cache */
 
   /* Enable I-Cache---------------------------------------------------------*/
-  SCB_EnableICache();
+  //SCB_EnableICache();
 
   /* Enable D-Cache---------------------------------------------------------*/
-  SCB_EnableDCache();
+  //SCB_EnableDCache();
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -123,42 +123,44 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  /* 初始化环形缓冲区 */
-  lwrb_init(&uart_rb, rb_buf, sizeof(rb_buf));
-  /* 启动 DMA 循环接收 */
-  HAL_UART_Receive_DMA(&huart1, dma_rx_buf, sizeof(dma_rx_buf));
-  /* 启动定时器中断 */
-  
+
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART1_UART_Init();
-  MX_IWDG1_Init();
+  //MX_IWDG1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   lwrb_init(&uart_rb, rb_buf, sizeof(rb_buf));
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buf, sizeof(dma_rx_buf));
-
   App_PrintVersion();
+  App_DebugTrailer();
   if (App_IsPending()) {
     printf("App is in PENDING state.\r\n");
     printf("Confirming app...\r\n");
-    App_ConfirmSelf();
+    if (App_ConfirmSelf() == 0) {
+      printf("App confirmed successfully.\r\n");
+    } else {
+      printf("Failed to confirm app!\r\n");
+    }
+    
   } else if (App_IsConfirmed()) {
-    printf("App is in CONFIRMED state."   );
+    printf("App is in CONFIRMED state.\r\n");
   } else {
     printf("App is in NEW or REJECTED state.\r\n");
   }
-  //IAP_EraseSlot();
-  // //iap写入16进制测试数据
-  // IAP_Begin(&writer, IAP_GetInactiveSlotBase(), 1024);  // 预留 1KB 空间
-  // IAP_Write(&writer, (const uint8_t *)"\xDE\xAD\xBE\xEF\xCA\xFE\xBA\xBE", 8);
-  // IAP_End(&writer);
-  
 
-  //printf("System ready. Send 'U' to start firmware upgrade.\r\n");
+  //测试trailer写入
+  // for(int i=0; i<4095; i++) {
+  //   if(App_ConfirmSelf()==-1){
+  //     printf("App confirm failed at %d\r\n", i);
+  //   }
+  // }
+  //App_DebugTrailer();
+
+  printf("System ready. Send 'U' to start firmware upgrade.\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -168,20 +170,24 @@ int main(void)
     //HAL_IWDG_Refresh(&hiwdg1);
     /* 读取一个字符 (环形缓冲区中有数据时才会返回) */
     uint8_t ch_byte;
-    int ch = (lwrb_read(&uart_rb, &ch_byte, 1) == 1) ? (int)ch_byte : -1;
-    if (ch == 'U') {
-      /* 擦除 inactive slot */
-      if (IAP_EraseSlot() != 0) {
-          printf("Failed to erase slot!\r\n");
-      }
-      lwrb_reset(&uart_rb);
-      UartDmaRx_ResetPos();
-      int result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
-      if (result == 0) {
-        g_JumpInit = 0;
-        NVIC_SystemReset();
-      }
+    if (lwrb_read(&uart_rb, &ch_byte, 1) == 1) {
+        printf("收到: %c\r\n", ch_byte);
+        
+        if (ch_byte == 'U') {
+          /* 擦除 inactive slot */
+          if (IAP_EraseSlot() != 0) {
+              printf("Failed to erase slot!\r\n");
+          }
+          lwrb_reset(&uart_rb);
+          UartDmaRx_ResetPos();
+          int result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
+          if (result == 0) {
+            g_JumpInit = 0;
+            NVIC_SystemReset();
+            }
+        }
     }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -256,11 +262,8 @@ void SystemClock_Config(void)
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
     if (huart->Instance != USART1) return;
-
     uint16_t pos = (uint16_t)(sizeof(dma_rx_buf) - __HAL_DMA_GET_COUNTER(huart->hdmarx));
-
     dcache_invalidate(dma_rx_buf, sizeof(dma_rx_buf));
-
     if (pos != old_pos) {
         if (pos > old_pos) {
             lwrb_write(&uart_rb, &dma_rx_buf[old_pos], pos - old_pos);

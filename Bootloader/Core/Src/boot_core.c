@@ -196,7 +196,7 @@ void Boot_JumpToApp(void)
     /* 获取活动 Slot，计算 App 入口 */
     slot_info_t active = Boot_GetActiveSlot();
     uint32_t entry = Boot_GetAppEntry(active, HDR_SIZE);
-    
+    //__disable_irq(); 
     /* 设置向量表偏移 */
     SCB->VTOR = entry;
     
@@ -296,9 +296,18 @@ rollback_action_t Boot_RollbackDecision(void)
      *=========================================================================*/
     if (!active.valid) {
         if (inactive.valid) {
-            /* ★★★ FAILOVER: inactive 有效，必须切换过去 ★★★ */
-            /* 不管 inactive 是 PENDING/CONFIRMED/REJECTED，都要启动它 */
+            /* ★★★ FAILOVER: inactive 有效，但还要检查是否被 REJECTED ★★★ */
+            if (has_inactive_tr && check_trailer_binding(&inactive_tr, &inactive) &&
+                inactive_tr.state == TR_STATE_REJECTED) {
+                printf("[Boot] FAILOVER blocked: inactive image is REJECTED, entering DFU mode\r\n");
+                return ROLLBACK_DFU_MODE;
+            }
             printf("[Boot] FAILOVER: Active is invalid, switching to valid inactive slot\r\n");
+            /* 确保 inactive 有 PENDING trailer，swap 后 App 才能确认自己 */
+            if (!has_inactive_tr || !check_trailer_binding(&inactive_tr, &inactive)) {
+                printf("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
+                trailer_write_pending(inactive_slot, inactive.hdr->img_crc32);
+            }
             return ROLLBACK_SWAP_TO_OLD;  /* 容错切换 */
         } else {
             /* 两个都无效，只能 DFU */
@@ -330,11 +339,22 @@ rollback_action_t Boot_RollbackDecision(void)
                     
                     /* 检查是否有可以回滚的旧版本 */
                     if (inactive.valid) {
+                        /* inactive 也被 REJECTED 则进入 DFU */
+                        if (has_inactive_tr && check_trailer_binding(&inactive_tr, &inactive) &&
+                            inactive_tr.state == TR_STATE_REJECTED) {
+                            printf("[Boot] Both images REJECTED, entering DFU mode\r\n");
+                            return ROLLBACK_DFU_MODE;
+                        }
+                        /* 确保 inactive 有 PENDING trailer */
+                        if (!has_inactive_tr || !check_trailer_binding(&inactive_tr, &inactive)) {
+                            printf("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
+                            trailer_write_pending(inactive_slot, inactive.hdr->img_crc32);
+                        }
                         return ROLLBACK_SWAP_TO_OLD;
                     } else {
-                        /* 无可回滚版本，只能继续用被 reject 的（危险但无奈） */
-                        printf("[Boot] WARNING: No valid inactive, forced to use rejected image\r\n");
-                        return ROLLBACK_NONE;
+                        /* 无可回滚版本，REJECTED 镜像绝不启动，进入 DFU */
+                        printf("[Boot] REJECTED + no valid inactive, entering DFU mode\r\n");
+                        return ROLLBACK_DFU_MODE;
                     }
                 }
                 
@@ -353,12 +373,23 @@ rollback_action_t Boot_RollbackDecision(void)
                 /* active 已被拒绝，需要回滚到 inactive */
                 printf("[Boot] Active image is REJECTED\r\n");
                 if (inactive.valid) {
+                    /* inactive 也被 REJECTED 则进入 DFU */
+                    if (has_inactive_tr && check_trailer_binding(&inactive_tr, &inactive) &&
+                        inactive_tr.state == TR_STATE_REJECTED) {
+                        printf("[Boot] Both images REJECTED, entering DFU mode\r\n");
+                        return ROLLBACK_DFU_MODE;
+                    }
                     printf("[Boot] Rollback to inactive slot\r\n");
+                    /* 确保 inactive 有 PENDING trailer */
+                    if (!has_inactive_tr || !check_trailer_binding(&inactive_tr, &inactive)) {
+                        printf("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
+                        trailer_write_pending(inactive_slot, inactive.hdr->img_crc32);
+                    }
                     return ROLLBACK_SWAP_TO_OLD;
                 }
-                /* inactive 无效，只能继续用被 rejected 的（危险但无奈） */
-                printf("[Boot] WARNING: No valid inactive, forced to use rejected image\r\n");
-                return ROLLBACK_NONE;
+                /* 无可回滚版本，REJECTED 镜像绝不启动，进入 DFU */
+                printf("[Boot] REJECTED + no valid inactive, entering DFU mode\r\n");
+                return ROLLBACK_DFU_MODE;
                 
             default:
                 /* 未知状态，当作无 trailer 处理 */
@@ -437,11 +468,6 @@ void Boot_ExecuteRollbackAction(rollback_action_t action)
             g_JumpInit = 0x5555AAAA;
             __DSB();
             NVIC_SystemReset();
-            while (1) {
-                HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-                HAL_Delay(100);
-            }
-            /* 不会返回 */
     }
     
     /* 不应到达 */

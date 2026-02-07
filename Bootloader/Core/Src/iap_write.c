@@ -266,12 +266,12 @@ int IAP_Begin(iap_writer_t* w, uint32_t dst_base, uint32_t dst_size)
     
     /* 检查目标地址有效性 */
     if (dst_base < slot_base || dst_base >= slot_end) {
-        //printf("[IAP] Invalid base address 0x%08lX\r\n", (unsigned long)dst_base);
+        printf("[IAP] Invalid base address 0x%08lX\r\n", (unsigned long)dst_base);
         return -2;
     }
     
     if (dst_base + dst_size > slot_end) {
-        //printf("[IAP] Size exceeds slot boundary\r\n");
+        printf("[IAP] Size exceeds slot boundary\r\n");
         return -3;
     }
     
@@ -282,8 +282,8 @@ int IAP_Begin(iap_writer_t* w, uint32_t dst_base, uint32_t dst_size)
     w->fill  = 0;
     memset(w->buf32, 0xFF, sizeof(w->buf32));  /* 填充 0xFF */
     
-    // printf("[IAP] Write session started: 0x%08lX - 0x%08lX\r\n",
-    //        (unsigned long)w->base, (unsigned long)w->limit);
+    printf("[IAP] Write session started: 0x%08lX - 0x%08lX\r\n",
+           (unsigned long)w->base, (unsigned long)w->limit);
     
     return 0;
 }

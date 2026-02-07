@@ -602,6 +602,36 @@
               <FileType>1</FileType>
               <FilePath>../Core/Src/stm32h7xx_hal_msp.c</FilePath>
             </File>
+            <File>
+              <FileName>app_confirm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\app_confirm.c</FilePath>
+            </File>
+            <File>
+              <FileName>iap_upgrade.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\iap_upgrade.c</FilePath>
+            </File>
+            <File>
+              <FileName>iap_write.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\iap_write.c</FilePath>
+            </File>
+            <File>
+              <FileName>lwrb.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\lwrb.c</FilePath>
+            </File>
+            <File>
+              <FileName>ymodem.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\ymodem.c</FilePath>
+            </File>
+            <File>
+              <FileName>ymodem_port.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\ymodem_port.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
