@@ -164,20 +164,24 @@ int main(void)
     //HAL_IWDG_Refresh(&hiwdg1);
     /* 读取一个字符 (环形缓冲区中有数据时才会返回) */
     uint8_t ch_byte;
-    int ch = (lwrb_read(&uart_rb, &ch_byte, 1) == 1) ? (int)ch_byte : -1;
-    if (ch == 'U') {
-      /* 擦除 inactive slot */
-      if (IAP_EraseSlot() != 0) {
-          printf("Failed to erase slot!\r\n");
-      }
-      lwrb_reset(&uart_rb);
-      UartDmaRx_ResetPos();
-      int result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
-      if (result == 0) {
-        g_JumpInit = 0;
-        NVIC_SystemReset();
-      }
+    if (lwrb_read(&uart_rb, &ch_byte, 1) == 1) {
+        printf("收到: %c\r\n", ch_byte);
+        
+        if (ch_byte == 'U') {
+          /* 擦除 inactive slot */
+          if (IAP_EraseSlot() != 0) {
+              printf("Failed to erase slot!\r\n");
+          }
+          lwrb_reset(&uart_rb);
+          UartDmaRx_ResetPos();
+          int result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
+          if (result == 0) {
+            g_JumpInit = 0;
+            NVIC_SystemReset();
+            }
+        }
     }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -252,11 +256,8 @@ void SystemClock_Config(void)
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
     if (huart->Instance != USART1) return;
-
     uint16_t pos = (uint16_t)(sizeof(dma_rx_buf) - __HAL_DMA_GET_COUNTER(huart->hdmarx));
-
     dcache_invalidate(dma_rx_buf, sizeof(dma_rx_buf));
-
     if (pos != old_pos) {
         if (pos > old_pos) {
             lwrb_write(&uart_rb, &dma_rx_buf[old_pos], pos - old_pos);

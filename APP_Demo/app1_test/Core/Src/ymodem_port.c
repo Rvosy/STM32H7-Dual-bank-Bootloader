@@ -47,9 +47,9 @@ void YmodemPort_InvalidateCache(void* buf, uint32_t size)
 
 void YmodemPort_Log(const char* fmt, ...)
 {
-    //va_list args;
-    // va_start(args, fmt);
-    // vprintf(fmt, args);
-    // va_end(args);
-    return;
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+    //return;
 }

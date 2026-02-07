@@ -10,6 +10,10 @@
       "gdbTarget": "localhost:50000",
       "showDevDebugOutput": "raw",
 
+      "liveWatch": {
+        "enabled": true,
+        "samplesPerSecond": 20
+      },
       "postAttachCommands": [
         "set *(unsigned int*)0xE000ED08 = 0x08020200",
         "set $msp = *(unsigned int*)0x08020200",
