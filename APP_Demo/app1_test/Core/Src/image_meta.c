@@ -294,7 +294,6 @@ int App_DebugTrailer(void)
         printf("  img_crc32: 0x%08lX (matches: %s)\r\n", 
                last_rec.img_crc32, 
                last_rec.img_crc32 == my_crc32 ? "YES" : "NO");
-        printf("  addr     : 0x%08lX\r\n", last_rec);
     } else {
         printf("No valid trailer record found!\r\n");
     }

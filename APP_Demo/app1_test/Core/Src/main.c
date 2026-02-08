@@ -128,7 +128,7 @@ int main(void)
   lwrb_init(&uart_rb, rb_buf, sizeof(rb_buf));
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buf, sizeof(dma_rx_buf));
   App_PrintVersion();
-  App_DebugTrailer();
+  //App_DebugTrailer();
   if (App_IsPending()) {
     printf("App is in PENDING state.\r\n");
     printf("Confirming app...\r\n");
@@ -164,7 +164,6 @@ int main(void)
     uint8_t ch_byte;
     if (lwrb_read(&uart_rb, &ch_byte, 1) == 1) {
         //printf("收到: %c\r\n", ch_byte);
-        
         if (ch_byte == 'U') {
           /* 擦除 inactive slot */
           if (IAP_EraseSlot() != 0) {

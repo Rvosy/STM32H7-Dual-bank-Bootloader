@@ -12,9 +12,16 @@
 #include "boot_swap.h"
 #include "trailer.h"
 #include "gpio.h"
+#include "key.h"
+#include "lwrb.h"
+#include "iap_upgrade.h"
 #include <stdio.h>
 #include <string.h>
 
+/* 外部引用 (定义在 main.c) */
+extern lwrb_t uart_rb;
+extern void UartDmaRx_ResetPos(void);
+extern lwrb_t uart_rb;
 /*============================================================================
  * 私有函数声明
  *============================================================================*/
@@ -461,13 +468,68 @@ void Boot_ExecuteRollbackAction(rollback_action_t action)
             }
             /* 不会返回，Boot_SetSwapBank 会触发复位 */
             break;
-            
+        case ROLLBACK_YMODEM_UPGRADE:
+        {
+            printf("[Boot] Starting Ymodem upgrade...\r\n");
+            if (IAP_EraseSlot() != 0) {
+                printf("Failed to erase slot!\r\n");
+            }
+            lwrb_reset(&uart_rb);
+            UartDmaRx_ResetPos();
+            int result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
+            if (result == 0) {
+                g_JumpInit = 0;
+                NVIC_SystemReset();
+            }
+            /* 升级失败，回到选择菜单 */
+            printf("[Boot] Ymodem upgrade failed, returning to menu...\r\n");
+        }
+        /* fall through to DFU menu */
         case ROLLBACK_DFU_MODE:
-            /* 进入 DFU 模式 */
-            printf("[Boot] Entering DFU mode...\r\n");
-            g_JumpInit = 0x5555AAAA;
-            __DSB();
-            NVIC_SystemReset();
+        {
+            /* 显示选择菜单，等待按键 */
+            printf("\r\n");
+            printf("============================================\r\n");
+            printf("  No valid image found. Select an option:\r\n");
+            printf("--------------------------------------------\r\n");
+            printf("  [KEY0] Ymodem Firmware Upgrade             \r\n");
+            printf("  [KEY1] Enter System DFU Mode               \r\n");
+            printf("============================================\r\n");
+            printf("Waiting for key press...\r\n");
+            
+            Key_GetFlag();  /* 清除之前的按键事件 */
+            
+            while (1) {
+                uint8_t flag = Key_GetFlag();
+                
+                if (flag & KEY_FLAG_KEY0) {
+                    /* KEY0: Ymodem 升级 */
+                    printf("[Boot] KEY0 pressed: Starting Ymodem upgrade...\r\n");
+                    if (IAP_EraseSlot() != 0) {
+                        printf("Failed to erase slot!\r\n");
+                    }
+                    lwrb_reset(&uart_rb);
+                    UartDmaRx_ResetPos();
+                    int ym_result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
+                    if (ym_result == 0) {
+                        printf("[Boot] Upgrade successful, rebooting...\r\n");
+                        g_JumpInit = 0;
+                        NVIC_SystemReset();
+                    } else {
+                        printf("[Boot] Upgrade failed! Press KEY0 to retry.\r\n");
+                    }
+                }
+                
+                if (flag & KEY_FLAG_KEY1) {
+                    /* KEY1: 进入 DFU 模式 */
+                    printf("[Boot] KEY1 pressed: Entering DFU mode...\r\n");
+                    g_JumpInit = 0x5555AAAA;
+                    __DSB();
+                    NVIC_SystemReset();
+                }
+            }
+        }
+         
     }
     
     /* 不应到达 */

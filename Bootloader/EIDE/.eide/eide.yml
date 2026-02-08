@@ -29,6 +29,7 @@ virtualFolder:
                 - path: ../Core/Src/crc.c
                 - path: ../Core/Src/tim.c
                 - path: ../Core/Src/system_stm32h7xx.c
+                - path: ../Core/Src/dma.c
               folders: []
     - name: Drivers
       files: []

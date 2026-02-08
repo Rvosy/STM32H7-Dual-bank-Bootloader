@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "crc.h"
+#include "dma.h"
 #include "memorymap.h"
 #include "tim.h"
 #include "usart.h"
@@ -31,6 +32,8 @@
 #include "boot_image.h"
 #include "boot_swap.h"
 #include "key.h"
+#include "lwrb.h"
+#include "iap_upgrade.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,8 +61,10 @@ uint32_t cnt = 0;
  * 放置在 DTCM RAM 固定地址，软复位后不会被清零
  */
 uint32_t g_JumpInit __attribute__((at(0x20000000), zero_init));  /* 跳转标志 */
-
-
+__attribute__((aligned(32))) static uint8_t dma_rx_buf[256];
+static uint8_t rb_buf[2048];
+lwrb_t uart_rb;
+static uint16_t old_pos = 0;
 
 /* USER CODE END PV */
 
@@ -67,7 +72,19 @@ uint32_t g_JumpInit __attribute__((at(0x20000000), zero_init));  /* 跳转标志
 void SystemClock_Config(void);
 static void MPU_Config(void);
 /* USER CODE BEGIN PFP */
-
+static inline void dcache_invalidate(void* addr, uint32_t len)
+{
+    uint32_t a = (uint32_t)addr;
+    uint32_t start = a & ~31U;
+    uint32_t end = (a + len + 31U) & ~31U;
+    SCB_InvalidateDCache_by_Addr((uint32_t*)start, end - start);
+}
+void UartDmaRx_ResetPos(void)
+{
+    // 读取 DMA 当前已经写到的位置
+    uint16_t pos = (uint16_t)(sizeof(dma_rx_buf) - __HAL_DMA_GET_COUNTER(huart1.hdmarx));
+    old_pos = pos;
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -127,6 +144,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_CRC_Init();
   MX_TIM5_Init();
@@ -154,6 +172,8 @@ int main(void)
   printf("                                                                                                                                                                                   \r\n");
   printf("===================================================================================================================================================================================\r\n");
   HAL_TIM_Base_Start_IT(&htim5); 
+  lwrb_init(&uart_rb, rb_buf, sizeof(rb_buf));
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buf, sizeof(dma_rx_buf));
   Key_Init();
   Boot_SelectAndJump();  // 选择镜像并跳转，不会返回
 
@@ -166,9 +186,23 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-    //printf("%d\r\n", cnt);
-    HAL_Delay(50);
+    uint8_t ch_byte;
+    if (lwrb_read(&uart_rb, &ch_byte, 1) == 1) {
+        //printf("收到: %c\r\n", ch_byte);
+        if (ch_byte == 'U') {
+          /* 擦除 inactive slot */
+          if (IAP_EraseSlot() != 0) {
+              printf("Failed to erase slot!\r\n");
+          }
+          lwrb_reset(&uart_rb);
+          UartDmaRx_ResetPos();
+          int result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
+          if (result == 0) {
+            g_JumpInit = 0;
+            NVIC_SystemReset();
+            }
+        }
+    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -235,7 +269,22 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-/* JumpToApp 不再需要，跳转逻辑已移至 main() 开头 */
+/*--- UART 空闲中断回调 ---*/
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+    if (huart->Instance != USART1) return;
+    uint16_t pos = (uint16_t)(sizeof(dma_rx_buf) - __HAL_DMA_GET_COUNTER(huart->hdmarx));
+    dcache_invalidate(dma_rx_buf, sizeof(dma_rx_buf));
+    if (pos != old_pos) {
+        if (pos > old_pos) {
+            lwrb_write(&uart_rb, &dma_rx_buf[old_pos], pos - old_pos);
+        } else {
+            lwrb_write(&uart_rb, &dma_rx_buf[old_pos], sizeof(dma_rx_buf) - old_pos);
+            if (pos > 0) lwrb_write(&uart_rb, &dma_rx_buf[0], pos);
+        }
+        old_pos = pos;
+    }
+}
 /* USER CODE END 4 */
 
  /* MPU Configuration */

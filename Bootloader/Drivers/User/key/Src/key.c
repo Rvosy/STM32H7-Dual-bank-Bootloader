@@ -7,13 +7,25 @@
 
 static Button btn0, btn1, btn2, btn3;
 extern uint32_t cnt;
+static volatile uint8_t key_flag = KEY_FLAG_NONE;  /* 按键事件标志 */
+
 static void single_click_handler(Button* btn)
 {
-    printf("Single Click\r\n");
-    if(btn == &btn0) printf("Button 0: Single Click\r\n");
-    if(btn == &btn1) printf("Button 1: Single Click\r\n");
-    if(btn == &btn2) printf("Button 2: Single Click\r\n");
-    if(btn == &btn3) printf("Button 3: Single Click\r\n");
+    if(btn == &btn0) { printf("Button 0: Single Click\r\n"); key_flag |= KEY_FLAG_KEY0; }
+    if(btn == &btn1) { printf("Button 1: Single Click\r\n"); key_flag |= KEY_FLAG_KEY1; }
+    if(btn == &btn2) { printf("Button 2: Single Click\r\n"); key_flag |= KEY_FLAG_KEY2; }
+    if(btn == &btn3) { printf("Button 3: Single Click\r\n"); key_flag |= KEY_FLAG_KEY3; }
+}
+
+/**
+ * @brief  获取并清除按键事件标志
+ * @retval 按键标志位掩码
+ */
+uint8_t Key_GetFlag(void)
+{
+    uint8_t f = key_flag;
+    key_flag = KEY_FLAG_NONE;
+    return f;
 }
 
 

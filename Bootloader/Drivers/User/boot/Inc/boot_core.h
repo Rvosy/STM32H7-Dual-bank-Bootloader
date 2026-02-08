@@ -18,6 +18,7 @@ typedef enum {
     ROLLBACK_SWAP_TO_NEW,       /* 需要切换到新镜像 (inactive -> active) */
     ROLLBACK_SWAP_TO_OLD,       /* 需要回滚到旧镜像 (已 REJECTED) */
     ROLLBACK_CONTINUE_PENDING,  /* 继续尝试 PENDING 镜像 (attempt++) */
+    ROLLBACK_YMODEM_UPGRADE,   /* 进入 Ymodem 升级流程 */
     ROLLBACK_DFU_MODE,          /* 进入 DFU 模式（无可用镜像） */
 } rollback_action_t;
 
