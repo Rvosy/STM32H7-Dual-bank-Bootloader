@@ -19,7 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "dma.h"
-#include "iwdg.h"
 #include "memorymap.h"
 #include "tim.h"
 #include "usart.h"
@@ -99,10 +98,10 @@ int main(void)
   /* Enable the CPU Cache */
 
   /* Enable I-Cache---------------------------------------------------------*/
-  //SCB_EnableICache();
+  SCB_EnableICache();
 
   /* Enable D-Cache---------------------------------------------------------*/
-  //SCB_EnableDCache();
+  SCB_EnableDCache();
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -124,7 +123,6 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART1_UART_Init();
-  //MX_IWDG1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   lwrb_init(&uart_rb, rb_buf, sizeof(rb_buf));
@@ -165,7 +163,7 @@ int main(void)
     /* 读取一个字符 (环形缓冲区中有数据时才会返回) */
     uint8_t ch_byte;
     if (lwrb_read(&uart_rb, &ch_byte, 1) == 1) {
-        printf("收到: %c\r\n", ch_byte);
+        //printf("收到: %c\r\n", ch_byte);
         
         if (ch_byte == 'U') {
           /* 擦除 inactive slot */
@@ -181,7 +179,6 @@ int main(void)
             }
         }
     }
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -211,9 +208,8 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 5;
@@ -267,6 +263,10 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
         }
         old_pos = pos;
     }
+    
+    // /* 关键：重新启动接收，使 IDLE 中断继续有效 */
+    // HAL_UARTEx_ReceiveToIdle_DMA(huart, dma_rx_buf, sizeof(dma_rx_buf));
+    // __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);  /* 禁用半传输中断 */
 }
 
 
@@ -276,7 +276,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim == &htim2) {
       //printf("Watchdog refreshed.\r\n");
-      HAL_IWDG_Refresh(&hiwdg1);
+      //HAL_IWDG_Refresh(&hiwdg1);
     }
 }
 

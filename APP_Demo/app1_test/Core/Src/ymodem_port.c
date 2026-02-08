@@ -23,6 +23,11 @@ void YmodemPort_SendByte(uint8_t ch)
 
 uint32_t YmodemPort_GetTick(void)
 {
+// uint32_t t0 = HAL_GetTick();
+// HAL_Delay(1000);
+// uint32_t t1 = HAL_GetTick();
+// printf("HAL tick delta(1s) = %lu\r\n", (unsigned long)(t1 - t0));
+
     return HAL_GetTick();
 }
 
@@ -47,9 +52,9 @@ void YmodemPort_InvalidateCache(void* buf, uint32_t size)
 
 void YmodemPort_Log(const char* fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    vprintf(fmt, args);
-    va_end(args);
-    //return;
+    // va_list args;
+    // va_start(args, fmt);
+    // vprintf(fmt, args);
+    // va_end(args);
+    return;
 }

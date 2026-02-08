@@ -38,6 +38,7 @@
 #define YMODEM_ERR_SEQ          -4
 #define YMODEM_ERR_CALLBACK     -5
 #define YMODEM_ERR_TOO_LARGE    -6
+#define YMODEM_ERR_PARAM        -7
 
 /*============================================================================
  * 回调函数类型
