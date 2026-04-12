@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__bfd-stm32__bfd_eide_build",
+      "mcp__bfd-stm32__bfd_ensure_profile",
+      "Bash(xargs grep:*)",
+      "Bash(find /d/Project/Embedded/STM32/Bootloader/Shared -type f -exec wc -l {} +)",
+      "Bash(sort -k2)",
+      "Bash(wc -l Shared/Inc/*.h Shared/Src/*.c)"
+    ]
+  }
+}

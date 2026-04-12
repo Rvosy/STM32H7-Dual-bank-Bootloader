@@ -1,0 +1,52 @@
+[ INFO ] start building at 2026-04-12 09:08:21
+
+[ TOOL ] Component: ARM Compiler 5.06 update 5 (build 528)
+
+[ INFO ] file statistics (incremental mode)
+
++---------+-----------+-----------+---------------+--------+
+| C Files | Cpp Files | Asm Files | Lib/Obj Files | Totals |
++---------+-----------+-----------+---------------+--------+
+| 0       | 0         | 0         | 0             | 0      |
++---------+-----------+-----------+---------------+--------+
+
+[ INFO ] start compiling ...
+
+[ INFO ] start linking ...
+
+Program Size: Code=91514 RO-data=4866 RW-data=36 ZI-data=5464  
+
+Total RO  Size (Code + RO Data)                96380 (  94.12kB)
+Total RW  Size (RW Data + ZI Data)              5500 (   5.37kB)
+Total ROM Size (Code + RO Data + RW Data)      96416 (  94.16kB)
+
+Total Memory Usage:
+
+  RAM: [                    ] 0.8%      5.4KB/640.0KB
+  ROM: [###############     ] 73.6%     94.2KB/128.0KB
+
+Section Memory Usage:
+
+  LR_IROM1 (0x08000000): [###############     ] 73.6%     94.2KB/128.0KB
+    - ER_IROM1 (0x08000000): [###############     ] 73.5%     94.1KB/128.0KB
+    - RW_IRAM1 (0x20000000): [                    ] 0.0%      4B/128.0KB
+    - RW_IRAM2 (0x24000000): [                    ] 1.0%      5.4KB/512.0KB
+
+[ INFO ] start outputting files ...
+
+>> output hex file		[done]
+
+file path: "build/Bootloader/Bootloader.hex"
+
+>> output s19 file		[done]
+
+file path: "build/Bootloader/Bootloader.s19"
+
+[ DONE ] build successfully !, elapsed time 0:0:0
+
+[ INFO ] post-build tasks ...
+
+>> Hex2bin   		[done]
+
+>> axf to elf		[done]
+

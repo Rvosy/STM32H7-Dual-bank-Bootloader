@@ -7,9 +7,9 @@
   */
 
 #include "boot_image.h"
+#include "bl_log.h"
 #include "crc.h"
 #include <string.h>
-#include <stdio.h>
 
 /*============================================================================
  * 外部变量
@@ -98,7 +98,7 @@ int Boot_CheckCRC(uint32_t slot_base, const image_hdr_t* hdr)
 {
     /* img_size 为 0 或过大认为无效 */
     if (hdr->img_size == 0 || hdr->img_size > (1024 * 1024 - HDR_SIZE)) {
-        printf("[CRC] 0x%08X: invalid size %u\r\n", slot_base, hdr->img_size);
+        BL_LOG("[CRC] 0x%08X: invalid size %u\r\n", slot_base, hdr->img_size);
         return 0;
     }
     
@@ -108,12 +108,12 @@ int Boot_CheckCRC(uint32_t slot_base, const image_hdr_t* hdr)
     uint32_t calc_crc = Boot_CalcImageCRC(slot_base, HDR_SIZE, hdr->img_size);
     
     if (calc_crc != hdr->img_crc32) {
-        printf("[CRC] 0x%08X: FAIL (calc=0x%08X, expect=0x%08X)\r\n", 
+        BL_LOG("[CRC] 0x%08X: FAIL (calc=0x%08X, expect=0x%08X)\r\n",
                slot_base, calc_crc, hdr->img_crc32);
         return 0;
     }
     
-    printf("[CRC] 0x%08X: OK (0x%08X)\r\n", slot_base, calc_crc);
+    BL_LOG("[CRC] 0x%08X: OK (0x%08X)\r\n", slot_base, calc_crc);
     return 1;
 }
 

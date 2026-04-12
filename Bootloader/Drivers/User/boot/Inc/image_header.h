@@ -1,10 +1,13 @@
 // image_header.h
+#ifndef __IMAGE_HEADER_H
+#define __IMAGE_HEADER_H
+
 #include <stdint.h>
+#include "bl_memmap.h"
 
 #define IMG_HDR_MAGIC  (0xA5A55A5Au)
 #define IMG_HDR_VER    (1u)
-
-#define HDR_SIZE       (0x200u)
+/* HDR_SIZE 由 bl_memmap.h 提供 */
 
 // 语义版本：MAJOR.MINOR.PATCH + BUILD(可选)
 typedef struct __attribute__((packed, aligned(4))) {
@@ -23,3 +26,5 @@ typedef struct __attribute__((packed, aligned(4))) {
     uint32_t img_size;  // 建议：不含 header
     uint32_t img_crc32; // 建议：不含 header
 } image_hdr_t;
+
+#endif /* __IMAGE_HEADER_H */

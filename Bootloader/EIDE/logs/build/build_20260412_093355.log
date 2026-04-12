@@ -1,0 +1,56 @@
+[ INFO ] start building at 2026-04-12 09:33:55
+
+[ TOOL ] Component: ARM Compiler 5.06 update 5 (build 528)
+
+[ INFO ] file statistics (incremental mode)
+
++---------+-----------+-----------+---------------+--------+
+| C Files | Cpp Files | Asm Files | Lib/Obj Files | Totals |
++---------+-----------+-----------+---------------+--------+
+| 2       | 0         | 0         | 0             | 2      |
++---------+-----------+-----------+---------------+--------+
+
+[ INFO ] start compiling ...
+
+>> [ 50%] CC '../Drivers/User/boot/Src/boot_core.c'
+".\..\Drivers\User\boot\Src\boot_core.c", line 200: [31;22mError: [0m #20: identifier "SCB" is undefined
+      SCB->VTOR = entry;
+[35;22m      ^[0m
+".\..\Drivers\User\boot\Src\boot_core.c", line 203: [33;22mWarning: [0m #223-D: function "__DSB" declared implicitly
+      __DSB();
+[35;22m      ^[0m
+".\..\Drivers\User\boot\Src\boot_core.c", line 204: [33;22mWarning: [0m #223-D: function "__ISB" declared implicitly
+      __ISB();
+[35;22m      ^[0m
+".\..\Drivers\User\boot\Src\boot_core.c", line 207: [33;22mWarning: [0m #223-D: function "__set_MSP" declared implicitly
+      __set_MSP(*(__IO uint32_t *)entry);
+[35;22m      ^[0m
+".\..\Drivers\User\boot\Src\boot_core.c", line 207: [31;22mError: [0m #20: identifier "__IO" is undefined
+      __set_MSP(*(__IO uint32_t *)entry);
+[35;22m                  ^[0m
+".\..\Drivers\User\boot\Src\boot_core.c", line 207: [31;22mError: [0m #18: expected a ")"
+      __set_MSP(*(__IO uint32_t *)entry);
+[35;22m                       ^[0m
+".\..\Drivers\User\boot\Src\boot_core.c", line 207: [31;22mError: [0m #18: expected a ")"
+      __set_MSP(*(__IO uint32_t *)entry);
+[35;22m                                  ^[0m
+".\..\Drivers\User\boot\Src\boot_core.c", line 210: [31;22mError: [0m #18: expected a ")"
+      ((void (*)(void))(*(__IO uint32_t *)(entry + 4)))();
+[35;22m                               ^[0m
+".\..\Drivers\User\boot\Src\boot_core.c", line 224: [33;22mWarning: [0m #223-D: function "__set_MSP" declared implicitly
+    __set_MSP(StackAddr);
+[35;22m    ^[0m
+".\..\Drivers\User\boot\Src\boot_core.c", line 449: [33;22mWarning: [0m #223-D: function "__DSB" declared implicitly
+              __DSB();
+[35;22m              ^[0m
+".\..\Drivers\User\boot\Src\boot_core.c", line 450: [33;22mWarning: [0m #223-D: function "NVIC_SystemReset" declared implicitly
+              NVIC_SystemReset();
+[35;22m              ^[0m
+.\..\Drivers\User\boot\Src\boot_core.c: 6 warnings, 5 errors
+
+ ERROR  compilation failed at : "d:\Project\Embedded\STM32\Bootloader\Bootloader\Drivers\User\boot\Src\boot_core.c", exit code: 1
+command: 
+  "C:\Keil_v5\ARM\ARMCC\bin\armcc.exe" -c --apcs=interwork -I../Core/Inc -I../Drivers/STM32H7xx_HAL_Driver/Inc -I../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H7xx/Include -I../Drivers/CMSIS/Include -I.cmsis/include -I../MDK-ARM/RTE/_Bootloader -I../Drivers/User/Inc -I../Drivers/User/boot/Inc -I../Drivers/User/iap/Inc -I../Drivers/User/key/Inc -I../Drivers/User/lwrb/Inc -I../Drivers/User/ymodem/Inc -I../../Shared/Inc -D"USE_PWR_LDO_SUPPLY" -D"USE_HAL_DRIVER" -D"STM32H743xx" -D"BL_DEBUG" --cpu Cortex-M7.fp.dp --li --c99 -D__MICROLIB -O0 -g -o .\build\Bootloader\.obj\__\Drivers\User\boot\Src\boot_core.o --no_depend_system_headers --depend .\build\Bootloader\.obj\__\Drivers\User\boot\Src\boot_core.d .\..\Drivers\User\boot\Src\boot_core.c
+
+ ERROR  build failed !, elapsed time 0:0:0
+

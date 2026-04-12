@@ -28,12 +28,14 @@ virtualFolder:
                 - path: ../Core/Src/stm32h7xx_hal_msp.c
                 - path: ../Core/Src/image_header.c
                 - path: ../Core/Src/app_confirm.c
-                - path: ../Core/Src/iap_write.c
+                - path: ../../../Shared/Src/iap_write.c
                 - path: ../Core/Src/ringbuf.c
                 - path: ../Core/Src/ymodem.c
                 - path: ../Core/Src/ymodem_port.c
                 - path: ../Core/Src/iap_upgrade.c
                 - path: ../Core/Src/dma.c
+                - path: ../../../Shared/Src/bl_flash_ops.c
+                - path: ../../../Shared/Src/trailer.c
               folders: []
     - name: Drivers
       files: []
@@ -77,6 +79,7 @@ targets:
         - USE_PWR_LDO_SUPPLY
         - USE_HAL_DRIVER
         - STM32H743xx
+        - BL_DEBUG
       incList:
         - ../Core/Inc
         - ../Drivers/STM32H7xx_HAL_Driver/Inc
@@ -85,8 +88,11 @@ targets:
         - ../Drivers/CMSIS/Include
         - .cmsis/include
         - ../MDK-ARM/RTE/_app2_test
+        - ../../../Shared/Inc
       libList: []
     excludeList: []
+    settings:
+      debugger: cortex-debug
     toolchain: AC5
     toolchainConfigMap:
       AC5:

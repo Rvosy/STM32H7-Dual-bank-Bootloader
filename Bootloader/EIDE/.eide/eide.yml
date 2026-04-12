@@ -72,14 +72,16 @@ virtualFolder:
             - path: ../Drivers/User/boot/Src/boot_image.c
             - path: ../Drivers/User/boot/Src/boot_slots.c
             - path: ../Drivers/User/boot/Src/boot_swap.c
-            - path: ../Drivers/User/boot/Src/trailer.c
+            - path: ../Drivers/User/boot/Src/boot_menu.c
+            - path: ../../Shared/Src/trailer.c
             - path: ../Drivers/User/iap/Src/iap_upgrade.c
-            - path: ../Drivers/User/iap/Src/iap_write.c
+            - path: ../../Shared/Src/iap_write.c
             - path: ../Drivers/User/key/Src/key.c
             - path: ../Drivers/User/key/Src/multi_button.c
             - path: ../Drivers/User/lwrb/Src/lwrb.c
             - path: ../Drivers/User/ymodem/Src/ymodem.c
             - path: ../Drivers/User/ymodem/Src/ymodem_port.c
+            - path: ../../Shared/Src/bl_flash_ops.c
           folders: []
     - name: ::CMSIS
       files: []
@@ -95,6 +97,7 @@ targets:
         - USE_PWR_LDO_SUPPLY
         - USE_HAL_DRIVER
         - STM32H743xx
+        - BL_DEBUG
       incList:
         - ../Core/Inc
         - ../Drivers/STM32H7xx_HAL_Driver/Inc
@@ -109,6 +112,7 @@ targets:
         - ../Drivers/User/key/Inc
         - ../Drivers/User/lwrb/Inc
         - ../Drivers/User/ymodem/Inc
+        - ../../Shared/Inc
       libList: []
     excludeList:
       - <virtual_root>/Application/User/Core/bak.c
@@ -116,6 +120,8 @@ targets:
       - <virtual_root>/Drivers/STM32H7xx_HAL_Driver/stm32h7xx_ll_exti.c
       - <virtual_root>/Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_usart_ex.c
       - <virtual_root>/Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_usart.c
+    settings:
+      debugger: cortex-debug
     toolchain: AC5
     toolchainConfigMap:
       AC5:

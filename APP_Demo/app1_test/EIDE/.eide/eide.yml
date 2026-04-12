@@ -94,6 +94,8 @@ targets:
       - <virtual_root>/Application/User/Core/ringbuf.c
       - <virtual_root>/Application/User/Core/app_confirm.c
       - <virtual_root>/Application/User/Core/image_header.c
+    settings:
+      debugger: cortex-debug
     toolchain: AC5
     toolchainConfigMap:
       AC5:

@@ -1,0 +1,78 @@
+[ INFO ] start building at 2026-04-12 09:07:34
+
+[ TOOL ] Component: ARM Compiler 5.06 update 5 (build 528)
+
+[ INFO ] file statistics (incremental mode)
+
++---------+-----------+-----------+---------------+--------+
+| C Files | Cpp Files | Asm Files | Lib/Obj Files | Totals |
++---------+-----------+-----------+---------------+--------+
+| 44      | 0         | 1         | 0             | 45     |
++---------+-----------+-----------+---------------+--------+
+
+[ INFO ] start compiling (jobs: 16) ...
+
+>> [  2%] CC '../Core/Src/usart.c'
+>> [  4%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma_ex.c'
+>> [  6%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_crc_ex.c'
+>> [  8%] CC '../Core/Src/tim.c'
+>> [ 11%] CC '../Core/Src/system_stm32h7xx.c'
+>> [ 13%] CC '../Core/Src/gpio.c'
+>> [ 15%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_crc.c'
+>> [ 17%] CC '../Core/Src/crc.c'
+>> [ 20%] CC '../Core/Src/stm32h7xx_hal_msp.c'
+>> [ 22%] CC '../Core/Src/main.c'
+>> [ 24%] CC '../Core/Src/stm32h7xx_it.c'
+>> [ 26%] CC '../Core/Src/dma.c'
+>> [ 28%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.c'
+>> [ 31%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.c'
+>> [ 33%] CC '../Core/Src/memorymap.c'
+>> [ 35%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma.c'
+>> [ 37%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_gpio.c'
+>> [ 40%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_exti.c'
+>> [ 42%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash_ex.c'
+>> [ 44%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash.c'
+>> [ 46%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c_ex.c'
+>> [ 48%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_hsem.c'
+>> [ 51%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr.c'
+>> [ 53%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c.c'
+>> [ 55%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mdma.c'
+>> [ 57%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr_ex.c'
+>> [ 60%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc.c'
+>> [ 62%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.c'
+>> [ 64%] CC '../Drivers/User/boot/Src/boot_slots.c'
+".\..\Drivers\User\boot\Src\boot_slots.c", line 66: [31;22mError: [0m #20: identifier "FLASH_BANK2_BASE" is undefined
+          return swap ? FLASH_BANK2_BASE : FLASH_BANK1_BASE;
+[35;22m                        ^[0m
+".\..\Drivers\User\boot\Src\boot_slots.c", line 66: [31;22mError: [0m #20: identifier "FLASH_BANK1_BASE" is undefined
+          return swap ? FLASH_BANK2_BASE : FLASH_BANK1_BASE;
+[35;22m                                           ^[0m
+".\..\Drivers\User\boot\Src\boot_slots.c", line 69: [31;22mError: [0m #20: identifier "FLASH_BANK1_BASE" is undefined
+          return swap ? FLASH_BANK1_BASE : FLASH_BANK2_BASE;
+[35;22m                        ^[0m
+".\..\Drivers\User\boot\Src\boot_slots.c", line 69: [31;22mError: [0m #20: identifier "FLASH_BANK2_BASE" is undefined
+          return swap ? FLASH_BANK1_BASE : FLASH_BANK2_BASE;
+[35;22m                                           ^[0m
+.\..\Drivers\User\boot\Src\boot_slots.c: 0 warnings, 4 errors
+>> [ 66%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.c'
+>> [ 68%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.c'
+>> [ 71%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.c'
+>> [ 73%] CC '../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.c'
+>> [ 75%] CC '../Drivers/User/boot/Src/boot_core.c'
+>> [ 77%] CC '../Drivers/User/iap/Src/iap_upgrade.c'
+>> [ 80%] CC '../Drivers/User/boot/Src/boot_image.c'
+>> [ 82%] CC '../Drivers/User/boot/Src/boot_swap.c'
+>> [ 84%] CC '../Drivers/User/boot/Src/trailer.c'
+>> [ 86%] CC '../Drivers/User/key/Src/multi_button.c'
+>> [ 88%] CC '../Drivers/User/ymodem/Src/ymodem.c'
+>> [ 91%] CC '../Drivers/User/iap/Src/iap_write.c'
+>> [ 93%] CC '../Drivers/User/lwrb/Src/lwrb.c'
+>> [ 95%] CC '../Drivers/User/key/Src/key.c'
+>> [ 97%] CC '../Drivers/User/ymodem/Src/ymodem_port.c'
+
+ ERROR  compilation failed at : "d:\Project\Embedded\STM32\Bootloader\Bootloader\Drivers\User\boot\Src\boot_slots.c", exit code: 1
+command: 
+  "C:\Keil_v5\ARM\ARMCC\bin\armcc.exe" -c --apcs=interwork -I../Core/Inc -I../Drivers/STM32H7xx_HAL_Driver/Inc -I../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H7xx/Include -I../Drivers/CMSIS/Include -I.cmsis/include -I../MDK-ARM/RTE/_Bootloader -I../Drivers/User/Inc -I../Drivers/User/boot/Inc -I../Drivers/User/iap/Inc -I../Drivers/User/key/Inc -I../Drivers/User/lwrb/Inc -I../Drivers/User/ymodem/Inc -I../../Shared/Inc -D"USE_PWR_LDO_SUPPLY" -D"USE_HAL_DRIVER" -D"STM32H743xx" -D"BL_DEBUG" --cpu Cortex-M7.fp.dp --li --c99 -D__MICROLIB -O0 -g -o .\build\Bootloader\.obj\__\Drivers\User\boot\Src\boot_slots.o --no_depend_system_headers --depend .\build\Bootloader\.obj\__\Drivers\User\boot\Src\boot_slots.d .\..\Drivers\User\boot\Src\boot_slots.c
+
+ ERROR  build failed !, elapsed time 0:0:3
+

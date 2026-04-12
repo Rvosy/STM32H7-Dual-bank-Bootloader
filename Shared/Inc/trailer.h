@@ -1,16 +1,30 @@
-#pragma once
+/**
+  ******************************************************************************
+  * @file           : trailer.h
+  * @brief          : Trailer 扇区管理接口 (Bootloader / App 共用)
+  * @description    : 提供 trailer 记录的读/写/擦除功能，用于回滚状态机
+  ******************************************************************************
+  */
+
+#ifndef __TRAILER_H
+#define __TRAILER_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
+#include "bl_memmap.h"
 
 /*============================================================================
  * 常量定义
  *============================================================================*/
 
 #define TR_MAGIC          0x544C5252u   /* 'TLRR' trailer magic */
-#define TRAILER_SIZE      0x00020000u   /* 128KB trailer 扇区大小 */
-#define MAX_ATTEMPTS      3u            /* 最大尝试次数，超过则回滚 */
+/* TRAILER_SIZE 由 bl_memmap.h 提供 */
 
 /*============================================================================
- * 状态机常量 (使用 #define 避免 enum 超出 int 范围)
+ * 状态机常量 (Bootloader 和 App 共用)
  *============================================================================*/
 
 #define TR_STATE_NEW       0xAAAA0001u   /* 新镜像，尚未尝试启动 */
@@ -74,3 +88,9 @@ int trailer_is_full(uint32_t trailer_base);
  * @retval 下一个序列号 (当前最大 seq + 1，若无记录则返回 1)
  */
 uint32_t trailer_next_seq(uint32_t trailer_base);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __TRAILER_H */

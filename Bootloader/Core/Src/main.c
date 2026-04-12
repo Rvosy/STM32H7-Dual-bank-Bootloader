@@ -28,6 +28,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
+#include "bl_memmap.h"
+#include "bl_log.h"
 #include "boot_core.h"
 #include "boot_image.h"
 #include "boot_swap.h"
@@ -54,8 +56,6 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint32_t cnt = 0;
-
 /*
  * 跨软复位保持的变量 (zero_init)
  * 放置在 DTCM RAM 固定地址，软复位后不会被清零
@@ -100,7 +100,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  if(g_JumpInit == 0x5555AAAA){
+  if(g_JumpInit == BL_DFU_MAGIC){
     g_JumpInit = 0;
     Boot_JumpToBootloader();
   }
@@ -150,27 +150,27 @@ int main(void)
   MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 
-  printf("===================================================================================================================================================================================\r\n");
-  printf("                                                                                                                                                                                   \r\n");
-  printf("                                                                                                                                   dddddddd                                        \r\n");
-  printf("BBBBBBBBBBBBBBBBB                                              tttt          lllllll                                               d::::::d                                        \r\n");
-  printf("B::::::::::::::::B                                          ttt:::t          l:::::l                                               d::::::d                                        \r\n");
-  printf("B::::::BBBBBB:::::B                                         t:::::t          l:::::l                                               d::::::d                                        \r\n");
-  printf("BB:::::B     B:::::B                                        t:::::t          l:::::l                                               d:::::d                                         \r\n");
-  printf("  B::::B     B:::::B   ooooooooooo      ooooooooooo   ttttttt:::::ttttttt     l::::l    ooooooooooo     aaaaaaaaaaaaa      ddddddddd:::::d     eeeeeeeeeeee    rrrrr   rrrrrrrrr   \r\n");
-  printf("  B::::B     B:::::B oo:::::::::::oo  oo:::::::::::oo t:::::::::::::::::t     l::::l  oo:::::::::::oo   a::::::::::::a   dd::::::::::::::d   ee::::::::::::ee  r::::rrr:::::::::r  \r\n");
-  printf("  B::::BBBBBB:::::B o:::::::::::::::oo:::::::::::::::ot:::::::::::::::::t     l::::l o:::::::::::::::o  aaaaaaaaa:::::a d::::::::::::::::d  e::::::eeeee:::::eer:::::::::::::::::r \r\n");
-  printf("  B:::::::::::::BB  o:::::ooooo:::::oo:::::ooooo:::::otttttt:::::::tttttt     l::::l o:::::ooooo:::::o           a::::ad:::::::ddddd:::::d e::::::e     e:::::err::::::rrrrr::::::r\r\n");
-  printf("  B::::BBBBBB:::::B o::::o     o::::oo::::o     o::::o      t:::::t           l::::l o::::o     o::::o    aaaaaaa:::::ad::::::d    d:::::d e:::::::eeeee::::::e r:::::r     r:::::r\r\n");
-  printf("  B::::B     B:::::Bo::::o     o::::oo::::o     o::::o      t:::::t           l::::l o::::o     o::::o  aa::::::::::::ad:::::d     d:::::d e:::::::::::::::::e  r:::::r     rrrrrrr\r\n");
-  printf("  B::::B     B:::::Bo::::o     o::::oo::::o     o::::o      t:::::t           l::::l o::::o     o::::oa::::aaaa::::::ad:::::d     d:::::d e::::::eeeeeeeeeee   r:::::r             \r\n");
-  printf("  B::::B     B:::::Bo::::o     o::::oo::::o     o::::o      t:::::t    tttttt l::::l o::::o     o::::oa::::a    a:::::ad:::::d     d:::::d e:::::::e            r:::::r            \r\n");
-  printf("BB:::::BBBBBB::::::Bo:::::ooooo:::::oo:::::ooooo:::::o      t::::::tttt:::::tl::::::lo:::::ooooo:::::oa::::a    a:::::ad::::::ddddd::::::dde::::::::e           r:::::r            \r\n");
-  printf("B:::::::::::::::::B o:::::::::::::::oo:::::::::::::::o      tt::::::::::::::tl::::::lo:::::::::::::::oa:::::aaaa::::::a d:::::::::::::::::d e::::::::eeeeeeee   r:::::r            \r\n");
-  printf("B::::::::::::::::B   oo:::::::::::oo  oo:::::::::::oo         tt:::::::::::ttl::::::l oo:::::::::::oo  a::::::::::aa:::a d:::::::::ddd::::d  ee:::::::::::::e   r:::::r            \r\n");
-  printf("BBBBBBBBBBBBBBBBB      ooooooooooo      ooooooooooo             ttttttttttt  llllllll   ooooooooooo     aaaaaaaaaa  aaaa  ddddddddd   ddddd    eeeeeeeeeeeeee   rrrrrrr            \r\n");
-  printf("                                                                                                                                                                                   \r\n");
-  printf("===================================================================================================================================================================================\r\n");
+  BL_LOG("===================================================================================================================================================================================\r\n");
+  BL_LOG("                                                                                                                                                                                   \r\n");
+  BL_LOG("                                                                                                                                   dddddddd                                        \r\n");
+  BL_LOG("BBBBBBBBBBBBBBBBB                                              tttt          lllllll                                               d::::::d                                        \r\n");
+  BL_LOG("B::::::::::::::::B                                          ttt:::t          l:::::l                                               d::::::d                                        \r\n");
+  BL_LOG("B::::::BBBBBB:::::B                                         t:::::t          l:::::l                                               d::::::d                                        \r\n");
+  BL_LOG("BB:::::B     B:::::B                                        t:::::t          l:::::l                                               d:::::d                                         \r\n");
+  BL_LOG("  B::::B     B:::::B   ooooooooooo      ooooooooooo   ttttttt:::::ttttttt     l::::l    ooooooooooo     aaaaaaaaaaaaa      ddddddddd:::::d     eeeeeeeeeeee    rrrrr   rrrrrrrrr   \r\n");
+  BL_LOG("  B::::B     B:::::B oo:::::::::::oo  oo:::::::::::oo t:::::::::::::::::t     l::::l  oo:::::::::::oo   a::::::::::::a   dd::::::::::::::d   ee::::::::::::ee  r::::rrr:::::::::r  \r\n");
+  BL_LOG("  B::::BBBBBB:::::B o:::::::::::::::oo:::::::::::::::ot:::::::::::::::::t     l::::l o:::::::::::::::o  aaaaaaaaa:::::a d::::::::::::::::d  e::::::eeeee:::::eer:::::::::::::::::r \r\n");
+  BL_LOG("  B:::::::::::::BB  o:::::ooooo:::::oo:::::ooooo:::::otttttt:::::::tttttt     l::::l o:::::ooooo:::::o           a::::ad:::::::ddddd:::::d e::::::e     e:::::err::::::rrrrr::::::r\r\n");
+  BL_LOG("  B::::BBBBBB:::::B o::::o     o::::oo::::o     o::::o      t:::::t           l::::l o::::o     o::::o    aaaaaaa:::::ad::::::d    d:::::d e:::::::eeeee::::::e r:::::r     r:::::r\r\n");
+  BL_LOG("  B::::B     B:::::Bo::::o     o::::oo::::o     o::::o      t:::::t           l::::l o::::o     o::::o  aa::::::::::::ad:::::d     d:::::d e:::::::::::::::::e  r:::::r     rrrrrrr\r\n");
+  BL_LOG("  B::::B     B:::::Bo::::o     o::::oo::::o     o::::o      t:::::t           l::::l o::::o     o::::oa::::aaaa::::::ad:::::d     d:::::d e::::::eeeeeeeeeee   r:::::r             \r\n");
+  BL_LOG("  B::::B     B:::::Bo::::o     o::::oo::::o     o::::o      t:::::t    tttttt l::::l o::::o     o::::oa::::a    a:::::ad:::::d     d:::::d e:::::::e            r:::::r            \r\n");
+  BL_LOG("BB:::::BBBBBB::::::Bo:::::ooooo:::::oo:::::ooooo:::::o      t::::::tttt:::::tl::::::lo:::::ooooo:::::oa::::a    a:::::ad::::::ddddd::::::dde::::::::e           r:::::r            \r\n");
+  BL_LOG("B:::::::::::::::::B o:::::::::::::::oo:::::::::::::::o      tt::::::::::::::tl::::::lo:::::::::::::::oa:::::aaaa::::::a d:::::::::::::::::d e::::::::eeeeeeee   r:::::r            \r\n");
+  BL_LOG("B::::::::::::::::B   oo:::::::::::oo  oo:::::::::::oo         tt:::::::::::ttl::::::l oo:::::::::::oo  a::::::::::aa:::a d:::::::::ddd::::d  ee:::::::::::::e   r:::::r            \r\n");
+  BL_LOG("BBBBBBBBBBBBBBBBB      ooooooooooo      ooooooooooo             ttttttttttt  llllllll   ooooooooooo     aaaaaaaaaa  aaaa  ddddddddd   ddddd    eeeeeeeeeeeeee   rrrrrrr            \r\n");
+  BL_LOG("                                                                                                                                                                                   \r\n");
+  BL_LOG("===================================================================================================================================================================================\r\n");
   HAL_TIM_Base_Start_IT(&htim5); 
   lwrb_init(&uart_rb, rb_buf, sizeof(rb_buf));
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buf, sizeof(dma_rx_buf));
@@ -192,7 +192,7 @@ int main(void)
         if (ch_byte == 'U') {
           /* 擦除 inactive slot */
           if (IAP_EraseSlot() != 0) {
-              printf("Failed to erase slot!\r\n");
+              BL_LOG("Failed to erase slot!\r\n");
           }
           lwrb_reset(&uart_rb);
           UartDmaRx_ResetPos();

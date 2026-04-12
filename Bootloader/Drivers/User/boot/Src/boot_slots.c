@@ -8,15 +8,7 @@
 
 #include "boot_slots.h"
 #include "boot_swap.h"
-#include "trailer.h"
-
-/*============================================================================
- * 内部常量
- *============================================================================*/
-
-/* 逻辑地址 (CPU 视角，swap 后会变化) */
-#define LOGICAL_SLOT_ACTIVE_BASE      (FLASH_BANK1_BASE + BOOTLOADER_SIZE)  /* 0x08020000 */
-#define LOGICAL_SLOT_INACTIVE_BASE    (FLASH_BANK2_BASE + BOOTLOADER_SIZE)  /* 0x08120000 */
+/* TRAILER_SIZE, ACTIVE_SLOT_BASE 等由 bl_memmap.h 经 boot_slots.h 提供 */
 
 /*============================================================================
  * 公共函数实现
@@ -32,8 +24,8 @@ slot_info_t Boot_GetActiveSlot(void)
     slot_info_t slot;
     
     /* 活动 Slot 始终在逻辑地址 0x08020000 */
-    slot.base = LOGICAL_SLOT_ACTIVE_BASE;
-    slot.trailer_base = slot.base + SLOT_TOTAL_SIZE - TRAILER_SIZE;
+    slot.base = ACTIVE_SLOT_BASE;
+    slot.trailer_base = ACTIVE_TRAILER_BASE;
     
     return slot;
 }
@@ -47,8 +39,8 @@ slot_info_t Boot_GetInactiveSlot(void)
     slot_info_t slot;
     
     /* 非活动 Slot 始终在逻辑地址 0x08120000 */
-    slot.base = LOGICAL_SLOT_INACTIVE_BASE;
-    slot.trailer_base = slot.base + SLOT_TOTAL_SIZE - TRAILER_SIZE;
+    slot.base = INACTIVE_SLOT_BASE;
+    slot.trailer_base = INACTIVE_TRAILER_BASE;
     
     return slot;
 }
@@ -71,9 +63,9 @@ uint32_t Boot_GetPhysicalBankBase(int is_active)
     
     if (is_active) {
         /* 活动 Slot 的物理 Bank */
-        return swap ? FLASH_BANK2_BASE : FLASH_BANK1_BASE;
+        return swap ? BL_FLASH_BANK2_BASE : BL_FLASH_BANK1_BASE;
     } else {
         /* 非活动 Slot 的物理 Bank */
-        return swap ? FLASH_BANK1_BASE : FLASH_BANK2_BASE;
+        return swap ? BL_FLASH_BANK1_BASE : BL_FLASH_BANK2_BASE;
     }
 }

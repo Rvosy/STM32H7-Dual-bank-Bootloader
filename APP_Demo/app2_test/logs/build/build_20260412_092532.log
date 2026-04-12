@@ -1,0 +1,58 @@
+[ INFO ] start building at 2026-04-12 09:25:32
+
+[ TOOL ] Component: ARM Compiler 5.06 update 5 (build 528)
+
+[ INFO ] file statistics (incremental mode)
+
++---------+-----------+-----------+---------------+--------+
+| C Files | Cpp Files | Asm Files | Lib/Obj Files | Totals |
++---------+-----------+-----------+---------------+--------+
+| 3       | 0         | 0         | 0             | 3      |
++---------+-----------+-----------+---------------+--------+
+
+[ INFO ] start compiling ...
+
+>> [ 33%] CC '../Core/Src/app_confirm.c'
+>> [ 66%] CC '../Core/Src/main.c'
+".\..\Core\Src\main.c", line 138: [33;22mWarning: [0m #223-D: function "IAP_EraseSlot" declared implicitly
+        if (IAP_EraseSlot() != 0) {
+[35;22m            ^[0m
+.\..\Core\Src\main.c: 1 warning, 0 errors
+>> [100%] CC '../../../Shared/Src/trailer.c'
+
+[ INFO ] start linking ...
+
+Program Size: Code=27684 RO-data=1032 RW-data=32 ZI-data=4836  
+
+Total RO  Size (Code + RO Data)                28716 (  28.04kB)
+Total RW  Size (RW Data + ZI Data)              4868 (   4.75kB)
+Total ROM Size (Code + RO Data + RW Data)      28748 (  28.07kB)
+
+Section Memory Usage:
+
+  LR_IROM1 (0x08020000): [#                   ] 3.7%      28.5KB/768.0KB
+    - ER_HDR (0x08020000)  : [#                   ] 5.5%      28B/512B
+    - ER_APP (0x08020200)  : [#                   ] 3.7%      28.0KB/767.5KB
+    - RW_IRAM1 (0x20000000): [                    ] 0.0%      4B/128.0KB
+    - RW_IRAM2 (0x24000000): [                    ] 0.9%      4.8KB/512.0KB
+
+[ INFO ] start outputting files ...
+
+>> output hex file		[done]
+
+file path: "build/app2_test/app2_test.hex"
+
+>> output s19 file		[done]
+
+file path: "build/app2_test/app2_test.s19"
+
+[ DONE ] build successfully !, elapsed time 0:0:0
+
+[ INFO ] post-build tasks ...
+
+>> Hex2Bin 		[done]
+
+>> PacthBin		[done]
+
+[OK] img_size=28720 crc32=0x3BC771DE -> Output\app2_test_patched.bin
+

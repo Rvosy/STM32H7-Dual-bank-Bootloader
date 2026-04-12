@@ -2,13 +2,14 @@
 #define IAP_WRITE_H
 
 #include <stdint.h>
+#include "bl_memmap.h"
 
 /*============================================================================
- * STM32H7 Flash 常量
+ * STM32H7 Flash 常量 (别名，实际值来自 bl_memmap.h)
  *============================================================================*/
 
-#define IAP_SECTOR_SIZE       0x20000u    /* 128KB per sector */
-#define IAP_FLASH_WORD_SIZE   32u         /* 256-bit = 32 bytes per flash word */
+#define IAP_SECTOR_SIZE       BL_SECTOR_SIZE        /* 128KB per sector */
+#define IAP_FLASH_WORD_SIZE   BL_FLASH_WORD_SIZE    /* 256-bit = 32 bytes */
 
 /*============================================================================
  * 数据结构

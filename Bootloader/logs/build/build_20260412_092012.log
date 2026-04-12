@@ -1,0 +1,56 @@
+[ INFO ] start building at 2026-04-12 09:20:13
+
+[ TOOL ] Component: ARM Compiler 5.06 update 5 (build 528)
+
+[ INFO ] file statistics (incremental mode)
+
++---------+-----------+-----------+---------------+--------+
+| C Files | Cpp Files | Asm Files | Lib/Obj Files | Totals |
++---------+-----------+-----------+---------------+--------+
+| 3       | 0         | 0         | 0             | 3      |
++---------+-----------+-----------+---------------+--------+
+
+[ INFO ] start compiling ...
+
+>> [ 33%] CC '../Drivers/User/boot/Src/trailer.c'
+>> [ 66%] CC '../Drivers/User/iap/Src/iap_write.c'
+>> [100%] CC '../../Shared/Src/bl_flash_ops.c'
+
+[ INFO ] start linking ...
+
+Program Size: Code=91446 RO-data=4866 RW-data=36 ZI-data=5472  
+
+Total RO  Size (Code + RO Data)                96312 (  94.05kB)
+Total RW  Size (RW Data + ZI Data)              5508 (   5.38kB)
+Total ROM Size (Code + RO Data + RW Data)      96348 (  94.09kB)
+
+Total Memory Usage:
+
+  RAM: [                    ] 0.8%      5.4KB/640.0KB
+  ROM: [###############     ] 73.5%     94.1KB/128.0KB
+
+Section Memory Usage:
+
+  LR_IROM1 (0x08000000): [###############     ] 73.5%     94.1KB/128.0KB
+    - ER_IROM1 (0x08000000): [###############     ] 73.5%     94.1KB/128.0KB
+    - RW_IRAM1 (0x20000000): [                    ] 0.0%      4B/128.0KB
+    - RW_IRAM2 (0x24000000): [                    ] 1.0%      5.4KB/512.0KB
+
+[ INFO ] start outputting files ...
+
+>> output hex file		[done]
+
+file path: "build/Bootloader/Bootloader.hex"
+
+>> output s19 file		[done]
+
+file path: "build/Bootloader/Bootloader.s19"
+
+[ DONE ] build successfully !, elapsed time 0:0:0
+
+[ INFO ] post-build tasks ...
+
+>> Hex2bin   		[done]
+
+>> axf to elf		[done]
+

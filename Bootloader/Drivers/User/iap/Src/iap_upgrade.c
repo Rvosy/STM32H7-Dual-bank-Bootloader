@@ -8,8 +8,8 @@
 #include "iap_upgrade.h"
 #include "iap_write.h"
 #include "ymodem.h"
+#include "bl_log.h"
 #include "lwrb.h"
-#include <stdio.h>
 
 /*============================================================================
  * 私有变量
@@ -23,7 +23,7 @@ static iap_writer_t s_iap_writer;
 
 static int on_begin(const char* name, uint32_t size)
 {
-    printf("Receiving: %s (%lu bytes)\r\n", name, (unsigned long)size); 
+    BL_LOG("Receiving: %s (%lu bytes)\r\n", name, (unsigned long)size);
     /* 初始化写入器 */
     return IAP_Begin(&s_iap_writer, IAP_GetInactiveSlotBase(), size);
 }
@@ -38,13 +38,13 @@ static int on_end(void)
 {
     /* 刷新缓冲区 */
     IAP_End(&s_iap_writer);
-    printf("Firmware written successfully!\r\n");
+    BL_LOG("Firmware written successfully!\r\n");
     return 0;
 }
 
 static void on_error(int code)
 {
-    printf("YMODEM error: %d\r\n", code);
+    BL_LOG("YMODEM error: %d\r\n", code);
 }
 
 /*============================================================================

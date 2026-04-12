@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-04-12T09:06:07+08:00",
+  "project": {
+    "root": ".",
+    "name": "Bootloader",
+    "ioc_file": "Bootloader.ioc"
+  },
+  "mcu": {
+    "family": "STM32H7",
+    "name": "STM32H743IITx",
+    "user_name": "STM32H743IITx"
+  },
+  "artifacts": {
+    "startup_file": "MDK-ARM\\startup_stm32h743xx.s",
+    "linker_file": "EIDE\\.cmsis\\device\\ARM\\ARMCA5\\Source\\AC5\\ARMCA5.sct",
+    "svd_file": "",
+    "cfg_file": "",
+    "elf": "EIDE\\build\\Bootloader\\Bootloader.elf",
+    "hex": "EIDE\\build\\Bootloader\\Bootloader.hex",
+    "map": "EIDE\\build\\Bootloader\\Bootloader.map",
+    "jlink_flash": "",
+    "jlink_debug": "",
+    "jlink_rtt": ""
+  },
+  "debug": {
+    "probe": "openocd",
+    "device": "STM32H743IITx",
+    "interface": "SWD",
+    "speed_khz": "8000"
+  },
+  "flash": {
+    "uploader": "OpenOCD",
+    "openocd_interface": "stlink",
+    "openocd_target": "${workspaceFolder}/.eide/stm32h7x_dual_boot",
+    "openocd_base_addr": "0x08000000"
+  },
+  "rtt": {
+    "symbol": "_SEGGER_RTT",
+    "scan_window": "0x24000000:0x00080000"
+  },
+  "runtime": {
+    "profile_dir": ".claude/bfd",
+    "legacy_profile_dir": ".codex/stm32/bootstrap",
+    "profile_json": ".claude/bfd/active_profile.json",
+    "profile_env": ".claude/bfd/active_profile.env",
+    "legacy_profile_json": ".codex/stm32/bootstrap/active_profile.json",
+    "legacy_profile_env": ".codex/stm32/bootstrap/active_profile.env",
+    "ioc_json_dir": ".claude/bfd/ioc_json",
+    "profile_overrides_env": ".claude/bfd/profile_overrides.env",
+    "fingerprint_version": "1",
+    "fingerprint": "1b89323d8000e2075a6e3d030c6cf24f9116baebbab45223f464cbc8236b5e98"
+  },
+  "tooling": {
+    "jlink_available": false,
+    "openocd_available": true,
+    "build_system": "eide",
+    "toolchain": "AC5"
+  },
+  "build": {
+    "system": "eide",
+    "project_dir": "EIDE",
+    "config_file": "EIDE\\.eide\\eide.yml",
+    "builder_params": "EIDE\\build\\Bootloader\\builder.params",
+    "out_dir": "EIDE\\build\\Bootloader",
+    "target_name": "Bootloader",
+    "toolchain": "AC5",
+    "rom_bytes": 131072,
+    "ram_bytes": 655360
+  },
+  "capabilities": {
+    "flash": true,
+    "rtt": false,
+    "register_capture": false
+  },
+  "gaps": {
+    "blockers": [],
+    "warnings": [
+      "Missing SVD file (*.svd); register capture may be unavailable",
+      "IOC parser export skipped: missing parser script (C:\\Users\\Rvosy\\.claude\\.codex\\skills\\bfd-ioc-parser\\scripts\\parse_ioc.py)"
+    ]
+  },
+  "generated_files": []
+}

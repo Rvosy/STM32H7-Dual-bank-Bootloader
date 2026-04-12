@@ -10,18 +10,11 @@
 #include "boot_image.h"
 #include "boot_slots.h"
 #include "boot_swap.h"
+#include "boot_menu.h"
 #include "trailer.h"
-#include "gpio.h"
-#include "key.h"
-#include "lwrb.h"
-#include "iap_upgrade.h"
-#include <stdio.h>
+#include "bl_log.h"
+#include "stm32h7xx_hal.h"
 #include <string.h>
-
-/* 外部引用 (定义在 main.c) */
-extern lwrb_t uart_rb;
-extern void UartDmaRx_ResetPos(void);
-extern lwrb_t uart_rb;
 /*============================================================================
  * 私有函数声明
  *============================================================================*/
@@ -162,18 +155,18 @@ static int check_upgrade_eligible(const image_t* inactive, const image_t* active
     if (has_inactive_tr && check_trailer_binding(inactive_tr, inactive)) {
         if (inactive_tr->state == TR_STATE_REJECTED) {
             /* 该镜像已被标记为 REJECTED，拒绝升级 */
-            printf("[Boot] Upgrade blocked: inactive image is REJECTED\r\n");
+            BL_LOG("[Boot] Upgrade blocked: inactive image is REJECTED\r\n");
             return 0;
         }
         /* 如果已经是 CONFIRMED，说明曾经是主槽被确认过，然后被换下去了
            现在又想升级回来？不允许，避免版本循环 */
         if (inactive_tr->state == TR_STATE_CONFIRMED) {
-            printf("[Boot] Upgrade blocked: inactive image already CONFIRMED (version rollback?)\r\n");
+            BL_LOG("[Boot] Upgrade blocked: inactive image already CONFIRMED (version rollback?)\r\n");
             return 0;
         }
         /* 如果已经是 PENDING，说明正在升级过程中，不要重复写 */
         if (inactive_tr->state == TR_STATE_PENDING) {
-            printf("[Boot] Upgrade in progress: inactive already PENDING\r\n");
+            BL_LOG("[Boot] Upgrade in progress: inactive already PENDING\r\n");
             /* 返回 1 继续执行 swap，但不需要再写 PENDING */
             return 1;
         }
@@ -273,29 +266,29 @@ rollback_action_t Boot_RollbackDecision(void)
     int has_inactive_tr = (trailer_read_last(inactive_slot.trailer_base, &inactive_tr) == 0);
     
     /* 打印调试信息 */
-    printf("[Boot] Active   Slot (0x%08lX): %s", (unsigned long)active_slot.base, active.valid ? "valid" : "invalid");
+    BL_LOG("[Boot] Active   Slot (0x%08lX): %s", (unsigned long)active_slot.base, active.valid ? "valid" : "invalid");
     if (active.valid) {
-        printf(", ver=%d.%d.%d, crc=0x%08lX",
+        BL_LOG(", ver=%d.%d.%d, crc=0x%08lX",
                active.hdr->ver.major, active.hdr->ver.minor, active.hdr->ver.patch,
                (unsigned long)active.hdr->img_crc32);
     }
     if (has_active_tr) {
-        printf(", trailer: state=0x%08lX, attempt=%lu, crc=0x%08lX", 
+        BL_LOG(", trailer: state=0x%08lX, attempt=%lu, crc=0x%08lX",
                (unsigned long)active_tr.state, (unsigned long)active_tr.attempt, (unsigned long)active_tr.img_crc32);
     }
-    printf("\r\n");
-    
-    printf("[Boot] Inactive Slot (0x%08lX): %s", (unsigned long)inactive_slot.base, inactive.valid ? "valid" : "invalid");
+    BL_LOG("\r\n");
+
+    BL_LOG("[Boot] Inactive Slot (0x%08lX): %s", (unsigned long)inactive_slot.base, inactive.valid ? "valid" : "invalid");
     if (inactive.valid) {
-        printf(", ver=%d.%d.%d, crc=0x%08lX",
+        BL_LOG(", ver=%d.%d.%d, crc=0x%08lX",
                inactive.hdr->ver.major, inactive.hdr->ver.minor, inactive.hdr->ver.patch,
                (unsigned long)inactive.hdr->img_crc32);
     }
     if (has_inactive_tr) {
-        printf(", trailer: state=0x%08lX, attempt=%lu, crc=0x%08lX", 
+        BL_LOG(", trailer: state=0x%08lX, attempt=%lu, crc=0x%08lX",
                (unsigned long)inactive_tr.state, (unsigned long)inactive_tr.attempt, (unsigned long)inactive_tr.img_crc32);
     }
-    printf("\r\n");
+    BL_LOG("\r\n");
     
     /*=========================================================================
      * 分支 1: A (active) 无效
@@ -306,19 +299,19 @@ rollback_action_t Boot_RollbackDecision(void)
             /* ★★★ FAILOVER: inactive 有效，但还要检查是否被 REJECTED ★★★ */
             if (has_inactive_tr && check_trailer_binding(&inactive_tr, &inactive) &&
                 inactive_tr.state == TR_STATE_REJECTED) {
-                printf("[Boot] FAILOVER blocked: inactive image is REJECTED, entering DFU mode\r\n");
+                BL_LOG("[Boot] FAILOVER blocked: inactive image is REJECTED, entering DFU mode\r\n");
                 return ROLLBACK_DFU_MODE;
             }
-            printf("[Boot] FAILOVER: Active is invalid, switching to valid inactive slot\r\n");
+            BL_LOG("[Boot] FAILOVER: Active is invalid, switching to valid inactive slot\r\n");
             /* 确保 inactive 有 PENDING trailer，swap 后 App 才能确认自己 */
             if (!has_inactive_tr || !check_trailer_binding(&inactive_tr, &inactive)) {
-                printf("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
+                BL_LOG("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
                 trailer_write_pending(inactive_slot, inactive.hdr->img_crc32);
             }
             return ROLLBACK_SWAP_TO_OLD;  /* 容错切换 */
         } else {
             /* 两个都无效，只能 DFU */
-            printf("[Boot] No valid image found, entering DFU mode\r\n");
+            BL_LOG("[Boot] No valid image found, entering DFU mode\r\n");
             return ROLLBACK_DFU_MODE;
         }
     }
@@ -339,9 +332,9 @@ rollback_action_t Boot_RollbackDecision(void)
                  */
                 if (active_tr.attempt >= MAX_ATTEMPTS) {
                     /* 超过最大尝试次数，标记为 REJECTED 并回滚 */
-                    printf("[Boot] PENDING attempt=%lu >= MAX_ATTEMPTS=%u\r\n",
+                    BL_LOG("[Boot] PENDING attempt=%lu >= MAX_ATTEMPTS=%u\r\n",
                            (unsigned long)active_tr.attempt, MAX_ATTEMPTS);
-                    printf("[Boot] Marking as REJECTED, will rollback to old version\r\n");
+                    BL_LOG("[Boot] Marking as REJECTED, will rollback to old version\r\n");
                     trailer_write_rejected(active_slot, active.hdr->img_crc32);
                     
                     /* 检查是否有可以回滚的旧版本 */
@@ -349,72 +342,72 @@ rollback_action_t Boot_RollbackDecision(void)
                         /* inactive 也被 REJECTED 则进入 DFU */
                         if (has_inactive_tr && check_trailer_binding(&inactive_tr, &inactive) &&
                             inactive_tr.state == TR_STATE_REJECTED) {
-                            printf("[Boot] Both images REJECTED, entering DFU mode\r\n");
+                            BL_LOG("[Boot] Both images REJECTED, entering DFU mode\r\n");
                             return ROLLBACK_DFU_MODE;
                         }
                         /* 确保 inactive 有 PENDING trailer */
                         if (!has_inactive_tr || !check_trailer_binding(&inactive_tr, &inactive)) {
-                            printf("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
+                            BL_LOG("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
                             trailer_write_pending(inactive_slot, inactive.hdr->img_crc32);
                         }
                         return ROLLBACK_SWAP_TO_OLD;
                     } else {
                         /* 无可回滚版本，REJECTED 镜像绝不启动，进入 DFU */
-                        printf("[Boot] REJECTED + no valid inactive, entering DFU mode\r\n");
+                        BL_LOG("[Boot] REJECTED + no valid inactive, entering DFU mode\r\n");
                         return ROLLBACK_DFU_MODE;
                     }
                 }
                 
                 /* 递增 attempt 计数并写入新记录，继续尝试启动 */
-                printf("[Boot] PENDING attempt=%lu -> %lu, continue testing\r\n", 
+                BL_LOG("[Boot] PENDING attempt=%lu -> %lu, continue testing\r\n", 
                        (unsigned long)active_tr.attempt, (unsigned long)(active_tr.attempt + 1));
                 trailer_increment_attempt(active_slot, &active_tr);
                 return ROLLBACK_CONTINUE_PENDING;
                 
             case TR_STATE_CONFIRMED:
                 /* 已确认，继续执行阶段 2.2 检查是否有更高版本 */
-                printf("[Boot] Active image is CONFIRMED\r\n");
+                BL_LOG("[Boot] Active image is CONFIRMED\r\n");
                 break;
                 
             case TR_STATE_REJECTED:
                 /* active 已被拒绝，需要回滚到 inactive */
-                printf("[Boot] Active image is REJECTED\r\n");
+                BL_LOG("[Boot] Active image is REJECTED\r\n");
                 if (inactive.valid) {
                     /* inactive 也被 REJECTED 则进入 DFU */
                     if (has_inactive_tr && check_trailer_binding(&inactive_tr, &inactive) &&
                         inactive_tr.state == TR_STATE_REJECTED) {
-                        printf("[Boot] Both images REJECTED, entering DFU mode\r\n");
+                        BL_LOG("[Boot] Both images REJECTED, entering DFU mode\r\n");
                         return ROLLBACK_DFU_MODE;
                     }
-                    printf("[Boot] Rollback to inactive slot\r\n");
+                    BL_LOG("[Boot] Rollback to inactive slot\r\n");
                     /* 确保 inactive 有 PENDING trailer */
                     if (!has_inactive_tr || !check_trailer_binding(&inactive_tr, &inactive)) {
-                        printf("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
+                        BL_LOG("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
                         trailer_write_pending(inactive_slot, inactive.hdr->img_crc32);
                     }
                     return ROLLBACK_SWAP_TO_OLD;
                 }
                 /* 无可回滚版本，REJECTED 镜像绝不启动，进入 DFU */
-                printf("[Boot] REJECTED + no valid inactive, entering DFU mode\r\n");
+                BL_LOG("[Boot] REJECTED + no valid inactive, entering DFU mode\r\n");
                 return ROLLBACK_DFU_MODE;
                 
             default:
                 /* 未知状态，当作无 trailer 处理 */
-                printf("[Boot] Unknown trailer state 0x%08lX, ignoring\r\n", (unsigned long)active_tr.state);
+                BL_LOG("[Boot] Unknown trailer state 0x%08lX, ignoring\r\n", (unsigned long)active_tr.state);
                 break;
         }
     } else if (has_active_tr && active.valid) {
         /* trailer CRC 与镜像 CRC 不匹配，说明 trailer 是旧镜像的 */
-        printf("[Boot] Active trailer CRC mismatch (0x%08lX != 0x%08lX), treating as new image\r\n",
+        BL_LOG("[Boot] Active trailer CRC mismatch (0x%08lX != 0x%08lX), treating as new image\r\n",
                (unsigned long)active_tr.img_crc32, (unsigned long)active.hdr->img_crc32);
         /* 为新镜像写入 PENDING(attempt=1) */
-        printf("[Boot] Writing PENDING(attempt=1) for new active image\r\n");
+        BL_LOG("[Boot] Writing PENDING(attempt=1) for new active image\r\n");
         trailer_write_pending(active_slot, active.hdr->img_crc32);
         return ROLLBACK_CONTINUE_PENDING;
     } else if (!has_active_tr && active.valid) {
         /* 没有 trailer 记录，说明是全新镜像（直接烧录或首次启动） */
-        printf("[Boot] No trailer for active image, treating as new image\r\n");
-        printf("[Boot] Writing PENDING(attempt=1) for new active image\r\n");
+        BL_LOG("[Boot] No trailer for active image, treating as new image\r\n");
+        BL_LOG("[Boot] Writing PENDING(attempt=1) for new active image\r\n");
         trailer_write_pending(active_slot, active.hdr->img_crc32);
         return ROLLBACK_CONTINUE_PENDING;
     }
@@ -428,18 +421,18 @@ rollback_action_t Boot_RollbackDecision(void)
         
         if (!already_pending) {
             /* 写入 PENDING(attempt=1) 到 inactive slot */
-            printf("[Boot] Writing PENDING(attempt=1) to inactive slot\r\n");
+            BL_LOG("[Boot] Writing PENDING(attempt=1) to inactive slot\r\n");
             trailer_write_pending(inactive_slot, inactive.hdr->img_crc32);
         } else {
-            printf("[Boot] Inactive already PENDING, continuing swap\r\n");
+            BL_LOG("[Boot] Inactive already PENDING, continuing swap\r\n");
         }
         
-        printf("[Boot] Swapping to inactive slot (version upgrade)\r\n");
+        BL_LOG("[Boot] Swapping to inactive slot (version upgrade)\r\n");
         return ROLLBACK_SWAP_TO_NEW;
     }
     
     /* 阶段 2.3: 无需任何操作，正常启动 active */
-    printf("[Boot] Booting active slot\r\n");
+    BL_LOG("[Boot] Booting active slot\r\n");
     return ROLLBACK_NONE;
 }
 
@@ -452,86 +445,37 @@ void Boot_ExecuteRollbackAction(rollback_action_t action)
         case ROLLBACK_NONE:
         case ROLLBACK_CONTINUE_PENDING:
             /* 正常启动或继续尝试 PENDING */
-            printf("[Boot] Jumping to active slot...\r\n");
+            BL_LOG("[Boot] Jumping to active slot...\r\n");
             g_JumpInit = BOOT_MAGIC;
             __DSB();
             NVIC_SystemReset();
             break;
-            
+
         case ROLLBACK_SWAP_TO_NEW:
         case ROLLBACK_SWAP_TO_OLD:
             /* 需要执行 Bank Swap */
-            printf("[Boot] Executing Bank Swap...\r\n");
+            BL_LOG("[Boot] Executing Bank Swap...\r\n");
             {
                 uint8_t current_swap = Boot_GetSwapState();
                 Boot_SetSwapBank(current_swap ? 0 : 1);
             }
             /* 不会返回，Boot_SetSwapBank 会触发复位 */
             break;
+
         case ROLLBACK_YMODEM_UPGRADE:
-        {
-            printf("[Boot] Starting Ymodem upgrade...\r\n");
-            if (IAP_EraseSlot() != 0) {
-                printf("Failed to erase slot!\r\n");
+            /* Ymodem 升级流程 */
+            if (Boot_YmodemUpgrade() != 0) {
+                /* 升级失败，进入 DFU 菜单 */
+                Boot_DfuMenu();
             }
-            lwrb_reset(&uart_rb);
-            UartDmaRx_ResetPos();
-            int result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
-            if (result == 0) {
-                g_JumpInit = 0;
-                NVIC_SystemReset();
-            }
-            /* 升级失败，回到选择菜单 */
-            printf("[Boot] Ymodem upgrade failed, returning to menu...\r\n");
-        }
-        /* fall through to DFU menu */
+            break;
+
         case ROLLBACK_DFU_MODE:
-        {
-            /* 显示选择菜单，等待按键 */
-            printf("\r\n");
-            printf("============================================\r\n");
-            printf("  No valid image found. Select an option:\r\n");
-            printf("--------------------------------------------\r\n");
-            printf("  [KEY0] Ymodem Firmware Upgrade             \r\n");
-            printf("  [KEY1] Enter System DFU Mode               \r\n");
-            printf("============================================\r\n");
-            printf("Waiting for key press...\r\n");
-            
-            Key_GetFlag();  /* 清除之前的按键事件 */
-            
-            while (1) {
-                uint8_t flag = Key_GetFlag();
-                
-                if (flag & KEY_FLAG_KEY0) {
-                    /* KEY0: Ymodem 升级 */
-                    printf("[Boot] KEY0 pressed: Starting Ymodem upgrade...\r\n");
-                    if (IAP_EraseSlot() != 0) {
-                        printf("Failed to erase slot!\r\n");
-                    }
-                    lwrb_reset(&uart_rb);
-                    UartDmaRx_ResetPos();
-                    int ym_result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
-                    if (ym_result == 0) {
-                        printf("[Boot] Upgrade successful, rebooting...\r\n");
-                        g_JumpInit = 0;
-                        NVIC_SystemReset();
-                    } else {
-                        printf("[Boot] Upgrade failed! Press KEY0 to retry.\r\n");
-                    }
-                }
-                
-                if (flag & KEY_FLAG_KEY1) {
-                    /* KEY1: 进入 DFU 模式 */
-                    printf("[Boot] KEY1 pressed: Entering DFU mode...\r\n");
-                    g_JumpInit = 0x5555AAAA;
-                    __DSB();
-                    NVIC_SystemReset();
-                }
-            }
-        }
-         
+            /* 进入 DFU 菜单（阻塞，不返回） */
+            Boot_DfuMenu();
+            break;
     }
-    
+
     /* 不应到达 */
     while (1) {}
 }
@@ -541,8 +485,8 @@ void Boot_ExecuteRollbackAction(rollback_action_t action)
  */
 void Boot_SelectAndJump(void)
 {
-    printf("[Boot] === Rollback State Machine ===\r\n");
-    printf("[Boot] Swap state: %d\r\n", Boot_GetSwapState());
+    BL_LOG("[Boot] === Rollback State Machine ===\r\n");
+    BL_LOG("[Boot] Swap state: %d\r\n", Boot_GetSwapState());
     
     rollback_action_t action = Boot_RollbackDecision();
     Boot_ExecuteRollbackAction(action);
