@@ -72,6 +72,9 @@
 **/EIDE/**/*.map
 **/EIDE/**/*.axf
 
+# EIDE / 构建日志
+**/logs/build/
+
 # 保留这些文件:
 # *.sct      - 分散加载文件
 # .clang-format - 代码格式化配置
@@ -138,6 +141,14 @@ __pycache__/
 .eggs/
 venv/
 .env
+
+# ===========================
+# Codex / BFD 本地产物
+# ===========================
+**/.claude/bfd/active_profile.env
+**/.claude/bfd/active_profile.json
+**/.claude/bfd/bootstrap_report.md
+**/.claude/bfd/ioc_json/
 
 # ===========================
 # Windows

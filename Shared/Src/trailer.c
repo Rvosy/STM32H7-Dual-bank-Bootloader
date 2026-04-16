@@ -27,6 +27,7 @@ static int rec_is_valid(const tr_rec_t* r)
  */
 static int rec_is_empty(const tr_rec_t* r)
 {
+    /* 擦除后的 Flash 全为 0xFF，因此“空记录”就是 32B 全 0xFF。 */
     const uint32_t* p = (const uint32_t*)r;
     for (int i = 0; i < 8; i++) {
         if (p[i] != 0xFFFFFFFFu) return 0;
@@ -45,7 +46,8 @@ int trailer_read_last(uint32_t base, tr_rec_t* out)
 {
     const tr_rec_t* last = NULL;
 
-    /* 扫描整个 trailer 扇区，找到最后一条有效记录 */
+    /* trailer 采用 append-only 日志结构，因此从头扫到第一个空洞即可，
+       最后一个有效项就是当前状态。 */
     for (uint32_t off = 0; off < TRAILER_SIZE; off += sizeof(tr_rec_t)) {
         const tr_rec_t* r = (const tr_rec_t*)(base + off);
 
@@ -91,7 +93,8 @@ int trailer_append(uint32_t base, const tr_rec_t* rec)
         return -1;
     }
 
-    /* 2) 准备 32B 对齐的数据 */
+    /* 2) 准备 32B 对齐的数据。
+       trailer 记录尺寸刻意设计成一个 flash word，保证单条记录原子落盘。 */
     memset(s_trailer_write_buf, 0xFF, sizeof(s_trailer_write_buf));
     memcpy(s_trailer_write_buf, rec, sizeof(tr_rec_t));
 
@@ -121,11 +124,17 @@ int trailer_is_full(uint32_t base)
 
 /**
  * @brief  获取下一个序列号
+ * @note   防御性溢出保护：接近 UINT32_MAX 时环绕回 1，避免 seq 溢出后
+ *         与旧记录冲突造成时序混乱（实际几乎不可达，纯粹代价为零的保险）。
  */
 uint32_t trailer_next_seq(uint32_t base)
 {
     static tr_rec_t last;  /* 使用 static 避免栈对齐问题 */
     if (trailer_read_last(base, &last) == 0) {
+        /* 接近 UINT32_MAX 时环绕，避免理论溢出 */
+        if (last.seq >= 0xFFFFFFFEu) {
+            return 1;
+        }
         return last.seq + 1;
     }
     return 1;  /* 无记录时从 1 开始 */

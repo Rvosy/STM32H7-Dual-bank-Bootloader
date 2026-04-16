@@ -89,6 +89,7 @@ int IAP_EraseSector(uint32_t sector_index)
  */
 int IAP_EraseSlot(void)
 {
+    /* 连 trailer 一起擦除，确保旧镜像留下的 PENDING/REJECTED 状态不会污染新升级结果。 */
     BL_LOG("[IAP] Erasing inactive slot (0x%08lX, %lu sectors, including trailer)...\r\n",
            (unsigned long)LOGICAL_SLOT_INACTIVE_BASE, (unsigned long)SLOT_SECTOR_COUNT);
 
@@ -164,7 +165,7 @@ int IAP_Begin(iap_writer_t* w, uint32_t dst_base, uint32_t dst_size)
         return -3;
     }
 
-    /* 初始化写入器 */
+    /* 初始化写入上下文。真正写 Flash 时按 32B 聚合，避免破坏 STM32H7 的 flash word 约束。 */
     w->base  = dst_base;
     w->limit = dst_base + dst_size;
     w->addr  = dst_base;
@@ -185,13 +186,14 @@ int IAP_Write(iap_writer_t* w, const uint8_t* data, uint32_t len)
     if (!w || !data) return -1;
 
     while (len > 0) {
-        /* 检查是否超出边界 */
+        /* 只有在缓冲区为空时才允许检查 addr>=limit。
+           若缓冲区里还有未刷新的尾包，说明这 32B flash word 仍属于合法范围。 */
         if (w->addr >= w->limit && w->fill == 0) {
             BL_LOG("[IAP] Write overflow\r\n");
             return -2;
         }
 
-        /* 填充缓冲区 */
+        /* 先把数据拼满一个 flash word，再一次性写入 Flash。 */
         uint32_t space = IAP_FLASH_WORD_SIZE - w->fill;
         uint32_t copy_len = (len < space) ? len : space;
 
@@ -200,7 +202,7 @@ int IAP_Write(iap_writer_t* w, const uint8_t* data, uint32_t len)
         data    += copy_len;
         len     -= copy_len;
 
-        /* 缓冲区满，写入 Flash */
+        /* 缓冲区凑满 32B 后再落盘，符合 H7 的最小编程粒度。 */
         if (w->fill == IAP_FLASH_WORD_SIZE) {
             if (BL_Flash_WriteWord(w->addr, w->buf32) != 0) {
                 BL_LOG("[IAP] Write failed at 0x%08lX\r\n", (unsigned long)w->addr);
@@ -223,7 +225,8 @@ int IAP_End(iap_writer_t* w)
 {
     if (!w) return -1;
 
-    /* 如果缓冲区有剩余数据，补齐 0xFF 后写入 */
+    /* 尾包不足 32B 时补 0xFF 再写入。
+       这样既满足最小写入粒度，也与“未写区域保持擦除态”语义一致。 */
     if (w->fill > 0) {
         /* buf32 已经预填充 0xFF，直接写入 */
         if (BL_Flash_WriteWord(w->addr, w->buf32) != 0) {

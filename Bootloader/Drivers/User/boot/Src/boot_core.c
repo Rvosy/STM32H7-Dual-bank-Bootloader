@@ -110,6 +110,8 @@ static int trailer_increment_attempt(slot_info_t slot, const tr_rec_t* current)
  */
 static int check_trailer_binding(const tr_rec_t* tr, const image_t* img)
 {
+    /* trailer 通过镜像 CRC 与当前镜像绑定，避免 Bank swap / 直接烧录后
+       把旧镜像残留的状态误判到新镜像上。 */
     if (!img->valid) return 0;
     return (tr->img_crc32 == img->hdr->img_crc32);
 }
@@ -185,31 +187,52 @@ static int check_upgrade_eligible(const image_t* inactive, const image_t* active
  */
 int Boot_ShouldJump(void)
 {
+    /* 所有“去启动 App”的路径最终都统一写成 BOOT_MAGIC + 软复位，
+       这里只负责识别这个一次性信号，不掺杂具体决策。 */
     return (g_JumpInit == BOOT_MAGIC);
 }
 
 /**
  * @brief  跳转到 App (在外设初始化之前调用，状态干净)
+ * @note   防御编程：显式关中断、清 NVIC pending、停 SysTick，保证
+ *         即使调用链变化（未来加了外设初始化在前）也不会被残留中断打断。
  */
 void Boot_JumpToApp(void)
 {
     /* 获取活动 Slot，计算 App 入口 */
     slot_info_t active = Boot_GetActiveSlot();
     uint32_t entry = Boot_GetAppEntry(active, HDR_SIZE);
-    //__disable_irq(); 
+
+    /* 关全局中断，避免跳转过程被打断 */
+    __disable_irq();
+
+    /* 关闭 SysTick，避免 App 启动前首个 tick 意外触发 */
+    SysTick->CTRL = 0;
+    SysTick->LOAD = 0;
+    SysTick->VAL  = 0;
+
+    /* 清除所有 NVIC 使能位 + pending 位 (Cortex-M7 有 8 组 32-bit 寄存器) */
+    for (int i = 0; i < 8; i++) {
+        NVIC->ICER[i] = 0xFFFFFFFFu;
+        NVIC->ICPR[i] = 0xFFFFFFFFu;
+    }
+
     /* 设置向量表偏移 */
     SCB->VTOR = entry;
-    
+
     /* 数据同步屏障，确保所有写操作完成 */
     __DSB();
     __ISB();
-    
+
     /* 设置主堆栈指针 */
     __set_MSP(*(__IO uint32_t *)entry);
-    
+
+    /* 重新打开中断：App 的 Reset_Handler 默认允许中断，此处保持一致 */
+    __enable_irq();
+
     /* 跳转到 Reset Handler */
     ((void (*)(void))(*(__IO uint32_t *)(entry + 4)))();
-    
+
     /* 不应到达这里 */
     while (1) {}
 }
@@ -217,7 +240,8 @@ void Boot_JumpToApp(void)
 
 void Boot_JumpToBootloader(void)
 {
-// 跳转至Bootloader
+  /* 跳转到 STM32H743 片上 ROM Bootloader。
+     这里不做外设清理，调用点位于 main 早期阶段，外设尚未初始化。 */
   uint32_t BootAddr = 0x1FF09800;
   uint32_t StackAddr = *(volatile uint32_t*)BootAddr;
   uint32_t EntryAddr = *(volatile uint32_t*)(BootAddr + 4);
@@ -296,7 +320,8 @@ rollback_action_t Boot_RollbackDecision(void)
      *=========================================================================*/
     if (!active.valid) {
         if (inactive.valid) {
-            /* ★★★ FAILOVER: inactive 有效，但还要检查是否被 REJECTED ★★★ */
+            /* 容错切换也要尊重“该镜像已经被判死刑”的事实。
+               否则在新镜像连续崩溃后，Boot 会在两个坏镜像之间来回打转。 */
             if (has_inactive_tr && check_trailer_binding(&inactive_tr, &inactive) &&
                 inactive_tr.state == TR_STATE_REJECTED) {
                 BL_LOG("[Boot] FAILOVER blocked: inactive image is REJECTED, entering DFU mode\r\n");
@@ -306,7 +331,10 @@ rollback_action_t Boot_RollbackDecision(void)
             /* 确保 inactive 有 PENDING trailer，swap 后 App 才能确认自己 */
             if (!has_inactive_tr || !check_trailer_binding(&inactive_tr, &inactive)) {
                 BL_LOG("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
-                trailer_write_pending(inactive_slot, inactive.hdr->img_crc32);
+                if (trailer_write_pending(inactive_slot, inactive.hdr->img_crc32) != 0) {
+                    BL_LOG("[Boot] Trailer write failed during failover, entering DFU\r\n");
+                    return ROLLBACK_DFU_MODE;
+                }
             }
             return ROLLBACK_SWAP_TO_OLD;  /* 容错切换 */
         } else {
@@ -335,8 +363,11 @@ rollback_action_t Boot_RollbackDecision(void)
                     BL_LOG("[Boot] PENDING attempt=%lu >= MAX_ATTEMPTS=%u\r\n",
                            (unsigned long)active_tr.attempt, MAX_ATTEMPTS);
                     BL_LOG("[Boot] Marking as REJECTED, will rollback to old version\r\n");
-                    trailer_write_rejected(active_slot, active.hdr->img_crc32);
-                    
+                    if (trailer_write_rejected(active_slot, active.hdr->img_crc32) != 0) {
+                        BL_LOG("[Boot] Trailer write REJECTED failed, entering DFU\r\n");
+                        return ROLLBACK_DFU_MODE;
+                    }
+
                     /* 检查是否有可以回滚的旧版本 */
                     if (inactive.valid) {
                         /* inactive 也被 REJECTED 则进入 DFU */
@@ -348,7 +379,10 @@ rollback_action_t Boot_RollbackDecision(void)
                         /* 确保 inactive 有 PENDING trailer */
                         if (!has_inactive_tr || !check_trailer_binding(&inactive_tr, &inactive)) {
                             BL_LOG("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
-                            trailer_write_pending(inactive_slot, inactive.hdr->img_crc32);
+                            if (trailer_write_pending(inactive_slot, inactive.hdr->img_crc32) != 0) {
+                                BL_LOG("[Boot] Trailer write failed before rollback, entering DFU\r\n");
+                                return ROLLBACK_DFU_MODE;
+                            }
                         }
                         return ROLLBACK_SWAP_TO_OLD;
                     } else {
@@ -357,11 +391,14 @@ rollback_action_t Boot_RollbackDecision(void)
                         return ROLLBACK_DFU_MODE;
                     }
                 }
-                
+
                 /* 递增 attempt 计数并写入新记录，继续尝试启动 */
-                BL_LOG("[Boot] PENDING attempt=%lu -> %lu, continue testing\r\n", 
+                BL_LOG("[Boot] PENDING attempt=%lu -> %lu, continue testing\r\n",
                        (unsigned long)active_tr.attempt, (unsigned long)(active_tr.attempt + 1));
-                trailer_increment_attempt(active_slot, &active_tr);
+                if (trailer_increment_attempt(active_slot, &active_tr) != 0) {
+                    BL_LOG("[Boot] Trailer attempt++ failed, entering DFU\r\n");
+                    return ROLLBACK_DFU_MODE;
+                }
                 return ROLLBACK_CONTINUE_PENDING;
                 
             case TR_STATE_CONFIRMED:
@@ -383,7 +420,10 @@ rollback_action_t Boot_RollbackDecision(void)
                     /* 确保 inactive 有 PENDING trailer */
                     if (!has_inactive_tr || !check_trailer_binding(&inactive_tr, &inactive)) {
                         BL_LOG("[Boot] Writing PENDING(attempt=1) for inactive slot before swap\r\n");
-                        trailer_write_pending(inactive_slot, inactive.hdr->img_crc32);
+                        if (trailer_write_pending(inactive_slot, inactive.hdr->img_crc32) != 0) {
+                            BL_LOG("[Boot] Trailer write failed before rollback, entering DFU\r\n");
+                            return ROLLBACK_DFU_MODE;
+                        }
                     }
                     return ROLLBACK_SWAP_TO_OLD;
                 }
@@ -402,13 +442,19 @@ rollback_action_t Boot_RollbackDecision(void)
                (unsigned long)active_tr.img_crc32, (unsigned long)active.hdr->img_crc32);
         /* 为新镜像写入 PENDING(attempt=1) */
         BL_LOG("[Boot] Writing PENDING(attempt=1) for new active image\r\n");
-        trailer_write_pending(active_slot, active.hdr->img_crc32);
+        if (trailer_write_pending(active_slot, active.hdr->img_crc32) != 0) {
+            BL_LOG("[Boot] Trailer write PENDING failed, entering DFU\r\n");
+            return ROLLBACK_DFU_MODE;
+        }
         return ROLLBACK_CONTINUE_PENDING;
     } else if (!has_active_tr && active.valid) {
         /* 没有 trailer 记录，说明是全新镜像（直接烧录或首次启动） */
         BL_LOG("[Boot] No trailer for active image, treating as new image\r\n");
         BL_LOG("[Boot] Writing PENDING(attempt=1) for new active image\r\n");
-        trailer_write_pending(active_slot, active.hdr->img_crc32);
+        if (trailer_write_pending(active_slot, active.hdr->img_crc32) != 0) {
+            BL_LOG("[Boot] Trailer write PENDING failed, entering DFU\r\n");
+            return ROLLBACK_DFU_MODE;
+        }
         return ROLLBACK_CONTINUE_PENDING;
     }
     
@@ -422,7 +468,10 @@ rollback_action_t Boot_RollbackDecision(void)
         if (!already_pending) {
             /* 写入 PENDING(attempt=1) 到 inactive slot */
             BL_LOG("[Boot] Writing PENDING(attempt=1) to inactive slot\r\n");
-            trailer_write_pending(inactive_slot, inactive.hdr->img_crc32);
+            if (trailer_write_pending(inactive_slot, inactive.hdr->img_crc32) != 0) {
+                BL_LOG("[Boot] Trailer write PENDING failed before upgrade, entering DFU\r\n");
+                return ROLLBACK_DFU_MODE;
+            }
         } else {
             BL_LOG("[Boot] Inactive already PENDING, continuing swap\r\n");
         }
@@ -444,7 +493,8 @@ void Boot_ExecuteRollbackAction(rollback_action_t action)
     switch (action) {
         case ROLLBACK_NONE:
         case ROLLBACK_CONTINUE_PENDING:
-            /* 正常启动或继续尝试 PENDING */
+            /* 不直接在当前上下文跳转，而是统一走“写 magic → 软复位 → main 早期跳转”。
+               这样可以保证跳转前外设、NVIC、Cache 都重新回到一致的干净状态。 */
             BL_LOG("[Boot] Jumping to active slot...\r\n");
             g_JumpInit = BOOT_MAGIC;
             __DSB();
@@ -482,15 +532,32 @@ void Boot_ExecuteRollbackAction(rollback_action_t action)
 
 /**
  * @brief  选择最佳镜像并跳转 (兼容旧接口，内部调用回滚状态机)
+ * @note   进入决策前先识别 BL_SWAP_FAIL_MAGIC：若上次 Bank Swap 失败，
+ *         不走常规决策，直接进 DFU 菜单让用户诊断/恢复，避免反复尝试 swap。
  */
 void Boot_SelectAndJump(void)
 {
     BL_LOG("[Boot] === Rollback State Machine ===\r\n");
     BL_LOG("[Boot] Swap state: %d\r\n", Boot_GetSwapState());
-    
+
+    /* 检测需要强制进 DFU 的异常信号。
+       这些信号都在 main 早期或 swap 失败路径中写入，这里统一消费。 */
+    if (g_JumpInit == BL_SWAP_FAIL_MAGIC) {
+        g_JumpInit = 0;  /* 消费一次，避免永远卡在 DFU */
+        BL_LOG("[Boot] Previous Bank Swap failed, forcing DFU mode\r\n");
+        Boot_ExecuteRollbackAction(ROLLBACK_DFU_MODE);
+        while (1) {}
+    }
+    if (g_JumpInit == BL_IWDG_LOCKOUT_MAGIC) {
+        g_JumpInit = 0;
+        BL_LOG("[Boot] IWDG lockout threshold reached, forcing DFU mode\r\n");
+        Boot_ExecuteRollbackAction(ROLLBACK_DFU_MODE);
+        while (1) {}
+    }
+
     rollback_action_t action = Boot_RollbackDecision();
     Boot_ExecuteRollbackAction(action);
-    
+
     /* 不应到达 */
     while (1) {}
 }

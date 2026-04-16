@@ -51,7 +51,10 @@ void Boot_SelectAndJump(void);
  */
 void Boot_JumpToApp(void);
 
-
+/**
+ * @brief  跳转到 STM32 片上 ROM Bootloader
+ * @note   由 main 早期阶段调用，用于进入系统 DFU；此函数不会返回
+ */
 void Boot_JumpToBootloader(void);
 
 /**

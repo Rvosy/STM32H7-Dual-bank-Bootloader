@@ -21,6 +21,8 @@
 
 #define MAX_RETRY               10      /* 最大重试次数 */
 #define INTER_CHAR_TIMEOUT      100     /* 字符间超时 (ms) */
+/* 整体传输超时：从进入 Ymodem_Receive 到传完的硬上限，避免异常状态无限阻塞 */
+#define YMODEM_TOTAL_TIMEOUT_MS 300000u /* 5 分钟 */
 
 /*============================================================================
  * 私有函数
@@ -140,16 +142,14 @@ int Ymodem_Receive(lwrb_t* rb, const ymodem_cb_t* cb, uint32_t timeout_ms)
     uint8_t expected_seq = 0;
     int retry_count = 0;
     int state = 0;  /* 0=等待开始, 1=接收数据, 2=等待结束 */
-    
+
+    /* 整体传输超时起点，防止异常态下无限循环 */
+    const uint32_t transfer_start = YmodemPort_GetTick();
+
     YmodemPort_Log("[YMODEM] Waiting for sender (send 'C')...\r\n");
-    
-    // 丢弃升级命令后的残留数据，使用库API，不要碰指针
-    
 
-    // 关键：如果你DMA→lwrb_write是通过 old_pos 增量搬运的
-    // 那你还需要把 old_pos 一起清零，否则会把一段旧数据“再搬一次”或出现错位。
-    // 例如提供一个函数：UartDmaRx_ResetPos(); 在这里调用你自己实现：old_pos = 当前DMA pos 或 0
-
+    /* 发送端在收到 'C' 之前不会开始发 packet 0。
+       串口残留清理和 DMA 游标复位由上层在进入本函数前完成，这里只负责协议握手。 */
     send_char(YMODEM_C);
     // uint32_t t0 = YmodemPort_GetTick();
     // uint8_t debug_first = 0;
@@ -167,7 +167,16 @@ int Ymodem_Receive(lwrb_t* rb, const ymodem_cb_t* cb, uint32_t timeout_ms)
     while (1) {
         uint8_t header;
         uint32_t packet_size;
-        
+
+        /* 整体超时兜底：即使单字符超时/CRC 失败循环也能被强制终止 */
+        if ((YmodemPort_GetTick() - transfer_start) > YMODEM_TOTAL_TIMEOUT_MS) {
+            YmodemPort_Log("[YMODEM] Total transfer timeout (>%lu ms)\r\n",
+                           (unsigned long)YMODEM_TOTAL_TIMEOUT_MS);
+            Ymodem_Cancel();
+            if (cb->on_error) cb->on_error(YMODEM_ERR_TIMEOUT);
+            return YMODEM_ERR_TIMEOUT;
+        }
+
         /* 读取包头 */
         if (read_byte(rb, &header, timeout_ms) != 0) {
             /* 超时 */
@@ -192,7 +201,7 @@ int Ymodem_Receive(lwrb_t* rb, const ymodem_cb_t* cb, uint32_t timeout_ms)
         
         retry_count = 0;  /* 收到数据，重置重试计数 */
         
-        /* 解析包头 */
+        /* 先根据包头决定状态迁移；真正的数据包要等完整包体收齐后再校验。 */
         switch (header) {
             case YMODEM_SOH:
                 packet_size = YMODEM_PACKET_128;
@@ -203,7 +212,9 @@ int Ymodem_Receive(lwrb_t* rb, const ymodem_cb_t* cb, uint32_t timeout_ms)
                 break;
                 
             case YMODEM_EOT:
-                /* 传输结束 */
+                /* YMODEM 结束握手是双 EOT：
+                   第一次 EOT -> NAK，要求发送方重发确认；
+                   第二次 EOT -> ACK + 'C'，再等一个空 packet 0 收尾。 */
                 if (state == 1) {
                     /* 第一个 EOT，发送 NAK */
                     send_char(YMODEM_NAK);
@@ -261,7 +272,8 @@ int Ymodem_Receive(lwrb_t* rb, const ymodem_cb_t* cb, uint32_t timeout_ms)
             continue;
         }
         
-        /* 验证序列号 */
+        /* 验证序列号。
+           若恰好是上一包的重发，按协议回 ACK 但不能重复写入数据。 */
         if (seq_no != expected_seq) {
             if (seq_no == (uint8_t)(expected_seq - 1)) {
                 /* 重复包，发送 ACK 但不处理 */
@@ -276,7 +288,7 @@ int Ymodem_Receive(lwrb_t* rb, const ymodem_cb_t* cb, uint32_t timeout_ms)
         
         /* 处理数据包 */
         if (state == 0 && seq_no == 0) {
-            /* Packet 0: 文件信息 */
+            /* packet 0 承载文件名和文件大小，只有它被接受后才进入数据态。 */
             parse_file_info(data, packet_size, filename, &filesize);
             
             if (filename[0] == '\0') {
@@ -307,7 +319,7 @@ int Ymodem_Receive(lwrb_t* rb, const ymodem_cb_t* cb, uint32_t timeout_ms)
         }
         
         if (state >= 1 && seq_no != 0) {
-            /* 数据包 */
+            /* 普通数据包。最后一个包可能带 0x1A/0x00 padding，需要按文件大小裁剪。 */
             uint32_t data_len = packet_size;
             
             /* 如果知道文件大小，裁剪最后一个包 */
@@ -339,7 +351,7 @@ int Ymodem_Receive(lwrb_t* rb, const ymodem_cb_t* cb, uint32_t timeout_ms)
         }
         
         if (state == 2 && seq_no == 0) {
-            /* 结束时的 packet 0 (空文件名) */
+            /* 结束阶段的空 packet 0 是整个 YMODEM 会话真正完成的标志。 */
             parse_file_info(data, packet_size, filename, &filesize);
             
             if (filename[0] == '\0') {

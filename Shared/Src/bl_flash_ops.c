@@ -27,6 +27,8 @@ static uint8_t s_flash_write_buf[32] __attribute__((aligned(32)));
  */
 static uint32_t get_flash_bank(uint32_t addr)
 {
+    /* 这里依据物理地址判断 Bank。
+       调用方传入的是实际要擦写的 Flash 地址，而不是逻辑 slot 编号。 */
     return (addr >= BL_FLASH_BANK2_BASE) ? FLASH_BANK_2 : FLASH_BANK_1;
 }
 
@@ -62,7 +64,7 @@ int BL_Flash_EraseSector(uint32_t addr)
     erase_cfg.NbSectors    = 1;
     erase_cfg.VoltageRange = FLASH_VOLTAGE_RANGE_3;  /* 2.7V - 3.6V */
 
-    /* 禁用中断，清理 D-Cache */
+    /* 关中断 + 清缓存，避免执行期间被中断打断或继续读到旧缓存行。 */
     __disable_irq();
     SCB_CleanDCache();
 
@@ -72,7 +74,7 @@ int BL_Flash_EraseSector(uint32_t addr)
 
     HAL_FLASH_Lock();
 
-    /* 清理并使 D-Cache 无效，恢复中断 */
+    /* 擦除后必须同时 clean+invalidate，确保后续 CPU 读到的是擦除后的真实内容。 */
     SCB_CleanInvalidateDCache();
     __enable_irq();
 
@@ -96,10 +98,10 @@ int BL_Flash_WriteWord(uint32_t addr, const uint8_t* data)
 {
     HAL_StatusTypeDef status;
 
-    /* 复制到 32B 对齐缓冲区 */
+    /* HAL 要求写入源按 32B 对齐；统一复制到静态对齐缓冲，调用方就不必自己保证。 */
     memcpy(s_flash_write_buf, data, BL_FLASH_WORD_SIZE);
 
-    /* 禁用中断，清理 D-Cache */
+    /* 写 Flash 期间同样要避免中断和脏缓存干扰。 */
     __disable_irq();
     SCB_CleanDCache();
 
@@ -109,7 +111,7 @@ int BL_Flash_WriteWord(uint32_t addr, const uint8_t* data)
 
     HAL_FLASH_Lock();
 
-    /* 清理并使 D-Cache 无效，恢复中断 */
+    /* 写完成后刷新缓存，避免随后校验/读取时看到旧值。 */
     SCB_CleanInvalidateDCache();
     __enable_irq();
 

@@ -65,8 +65,13 @@ extern "C" {
  *============================================================================*/
 
 #define BOOT_MAGIC             0xB007A55Au   /* Boot 跳转标志 (g_JumpInit) */
-#define BL_DFU_MAGIC           0x5555AAAAu   /* DFU 模式入口标志 */
+#define BL_DFU_MAGIC           0x5555AAAAu   /* 跳到 STM32 ROM Bootloader 系统下载模式 */
+#define BL_SWAP_FAIL_MAGIC     0xDEADBA55u   /* Bank Swap 编程失败，需要进 DFU 诊断 */
+#define BL_IWDG_LOCKOUT_MAGIC  0xD0671487u   /* IWDG 连续复位达阈值，强制进 DFU 菜单 */
 #define BL_ROM_BOOTLOADER      0x1FF09800u   /* STM32H7 系统 Bootloader 地址 */
+
+/* IWDG 连续复位阈值：达到后强制进入 DFU，避免无限 attempt++ */
+#define IWDG_LOCKOUT_THRESHOLD 5u
 
 #ifdef __cplusplus
 }

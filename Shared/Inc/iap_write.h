@@ -15,11 +15,16 @@
  * 数据结构
  *============================================================================*/
 
+/*
+ * 注意：AC5 C99 模式不支持 _Static_assert，因此这里不加编译期断言。
+ * aligned(32) 修饰符本身会让 AC5/AC6/GCC 自动把整个结构体对齐到 32B，
+ * 若实例化位置（栈/静态）无法满足会在链接期或运行期暴露问题。
+ */
 typedef struct {
   uint32_t base;          /* 目标区域起始地址 */
   uint32_t limit;         /* 目标区域结束地址 (base + size) */
   uint32_t addr;          /* 当前写入地址 */
-  uint8_t  buf32[32];     /* 32B 对齐缓冲区 (flash word) */
+  uint8_t  buf32[32] __attribute__((aligned(32))); /* STM32H7 Flash word = 32B，必须 32B 对齐 */
   uint32_t fill;          /* buf32 中已填充的字节数 */
 } iap_writer_t;
 

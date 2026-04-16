@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-04-12T09:06:07+08:00",
+  "generated_at": "2026-04-17T00:32:02+08:00",
   "project": {
     "root": ".",
     "name": "Bootloader",
@@ -49,7 +49,7 @@
     "ioc_json_dir": ".claude/bfd/ioc_json",
     "profile_overrides_env": ".claude/bfd/profile_overrides.env",
     "fingerprint_version": "1",
-    "fingerprint": "1b89323d8000e2075a6e3d030c6cf24f9116baebbab45223f464cbc8236b5e98"
+    "fingerprint": "d478e5a40a89894eeab269e7e0ee5f7b6801c91c2aad837075c26a6b4517d11b"
   },
   "tooling": {
     "jlink_available": false,

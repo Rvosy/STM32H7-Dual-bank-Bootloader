@@ -60,11 +60,14 @@
  * 跨软复位保持的变量 (zero_init)
  * 放置在 DTCM RAM 固定地址，软复位后不会被清零
  */
-uint32_t g_JumpInit __attribute__((at(0x20000000), zero_init));  /* 跳转标志 */
+uint32_t g_JumpInit __attribute__((at(0x20000000), zero_init));          /* 跳转标志 */
+uint32_t g_iwdg_reset_count __attribute__((at(0x20000004), zero_init));  /* 连续 IWDG 复位计数 */
 __attribute__((aligned(32))) static uint8_t dma_rx_buf[256];
 static uint8_t rb_buf[2048];
 lwrb_t uart_rb;
 static uint16_t old_pos = 0;
+/* UART DMA → lwrb 溢出统计 (volatile 允许在中断里累加) */
+static volatile uint32_t s_uart_overflow_count = 0;
 
 /* USER CODE END PV */
 
@@ -74,6 +77,8 @@ static void MPU_Config(void);
 /* USER CODE BEGIN PFP */
 static inline void dcache_invalidate(void* addr, uint32_t len)
 {
+    /* STM32H7 开启 D-Cache 后，DMA 写入的 RX 缓冲区需要先失效缓存，
+       否则 CPU 可能继续读到旧缓存数据，导致串口流解析错位。 */
     uint32_t a = (uint32_t)addr;
     uint32_t start = a & ~31U;
     uint32_t end = (a + len + 31U) & ~31U;
@@ -81,7 +86,8 @@ static inline void dcache_invalidate(void* addr, uint32_t len)
 }
 void UartDmaRx_ResetPos(void)
 {
-    // 读取 DMA 当前已经写到的位置
+    /* 升级前会清空环形缓冲，但 DMA 仍在环形模式持续搬运。
+       这里把 old_pos 同步到 DMA 当前写指针，避免把旧数据再搬一次。 */
     uint16_t pos = (uint16_t)(sizeof(dma_rx_buf) - __HAL_DMA_GET_COUNTER(huart1.hdmarx));
     old_pos = pos;
 }
@@ -100,15 +106,24 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  /* 如果上一次请求进入系统 ROM Bootloader，这里在任何外设初始化前直接跳转，
+     避免当前 Bootloader 的外设状态干扰 ROM DFU。 */
   if(g_JumpInit == BL_DFU_MAGIC){
     g_JumpInit = 0;
     Boot_JumpToBootloader();
   }
-    //检查是否是看门狗复位
+  /* IWDG 连续复位表示 App 可能启动即崩溃，累计到阈值后强制留在 Bootloader。 */
   if(__HAL_RCC_GET_FLAG(RCC_FLAG_IWDG1RST)!=RESET){
-      //清除复位标志
+      /* IWDG 复位：累加计数器，阈值前清 g_JumpInit 走正常决策（attempt++），
+       * 达到阈值说明 App 反复跑飞，强制进 DFU 避免死循环 */
       __HAL_RCC_CLEAR_RESET_FLAGS();
-      g_JumpInit = 0;
+      g_iwdg_reset_count++;
+      if (g_iwdg_reset_count >= IWDG_LOCKOUT_THRESHOLD) {
+          g_iwdg_reset_count = 0;         /* 消费信号，避免下次再进 */
+          g_JumpInit = BL_IWDG_LOCKOUT_MAGIC;  /* 在 Boot_SelectAndJump 中被识别 */
+      } else {
+          g_JumpInit = 0;
+      }
   }
   /* 软复位后检测：如果已选好镜像，直接跳转（此时外设未初始化，状态干净）*/
   if (Boot_ShouldJump()) Boot_JumpToApp();
@@ -171,6 +186,8 @@ int main(void)
   BL_LOG("BBBBBBBBBBBBBBBBB      ooooooooooo      ooooooooooo             ttttttttttt  llllllll   ooooooooooo     aaaaaaaaaa  aaaa  ddddddddd   ddddd    eeeeeeeeeeeeee   rrrrrrr            \r\n");
   BL_LOG("                                                                                                                                                                                   \r\n");
   BL_LOG("===================================================================================================================================================================================\r\n");
+  /* 先启动串口 DMA 和按键，再进入镜像选择流程。
+     这样即使没有可启动镜像，DFU 菜单也能立即收按键和串口升级命令。 */
   HAL_TIM_Base_Start_IT(&htim5); 
   lwrb_init(&uart_rb, rb_buf, sizeof(rb_buf));
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buf, sizeof(dma_rx_buf));
@@ -187,9 +204,16 @@ int main(void)
   while (1)
   {
     uint8_t ch_byte;
+    /* 主循环只保留一个最小串口入口：收到 'U' 后走 YMODEM 升级。
+       正常启动路径已在 Boot_SelectAndJump() 内完成，不会回到这里。 */
     if (lwrb_read(&uart_rb, &ch_byte, 1) == 1) {
-        //printf("收到: %c\r\n", ch_byte);
         if (ch_byte == 'U') {
+          /* 升级前上报溢出计数，帮助定位波特率/缓冲问题 */
+          if (s_uart_overflow_count > 0) {
+              BL_LOG("[UART] Pre-upgrade overflow: %lu bytes dropped\r\n",
+                     (unsigned long)s_uart_overflow_count);
+              s_uart_overflow_count = 0;
+          }
           /* 擦除 inactive slot */
           if (IAP_EraseSlot() != 0) {
               BL_LOG("Failed to erase slot!\r\n");
@@ -197,6 +221,12 @@ int main(void)
           lwrb_reset(&uart_rb);
           UartDmaRx_ResetPos();
           int result = IAP_UpgradeViaYmodem(&uart_rb, 2000);
+          /* 升级结束后再报告一次溢出（YMODEM 期间的） */
+          if (s_uart_overflow_count > 0) {
+              BL_LOG("[UART] In-upgrade overflow: %lu bytes dropped\r\n",
+                     (unsigned long)s_uart_overflow_count);
+              s_uart_overflow_count = 0;
+          }
           if (result == 0) {
             g_JumpInit = 0;
             NVIC_SystemReset();
@@ -273,14 +303,30 @@ void SystemClock_Config(void)
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
     if (huart->Instance != USART1) return;
+
+    /* 不直接相信 HAL 传入的 Size，而是重新读取 DMA 剩余计数。
+       这样无论回调由 IDLE/半传输/满传输哪个事件触发，都能按“DMA 当前写到哪”
+       这一唯一事实把增量数据搬进环形缓冲。 */
     uint16_t pos = (uint16_t)(sizeof(dma_rx_buf) - __HAL_DMA_GET_COUNTER(huart->hdmarx));
     dcache_invalidate(dma_rx_buf, sizeof(dma_rx_buf));
     if (pos != old_pos) {
+        /* lwrb_write 返回实际写入字节数；若小于请求值，说明环形缓冲满，累加溢出计数 */
+        size_t req, wrote;
         if (pos > old_pos) {
-            lwrb_write(&uart_rb, &dma_rx_buf[old_pos], pos - old_pos);
+            /* DMA 写指针尚未回卷，直接搬运 old_pos..pos 区间。 */
+            req   = pos - old_pos;
+            wrote = lwrb_write(&uart_rb, &dma_rx_buf[old_pos], req);
+            if (wrote < req) s_uart_overflow_count += (uint32_t)(req - wrote);
         } else {
-            lwrb_write(&uart_rb, &dma_rx_buf[old_pos], sizeof(dma_rx_buf) - old_pos);
-            if (pos > 0) lwrb_write(&uart_rb, &dma_rx_buf[0], pos);
+            /* DMA 已回卷，先搬运 old_pos..buf_end，再搬运 0..pos。 */
+            req   = sizeof(dma_rx_buf) - old_pos;
+            wrote = lwrb_write(&uart_rb, &dma_rx_buf[old_pos], req);
+            if (wrote < req) s_uart_overflow_count += (uint32_t)(req - wrote);
+            if (pos > 0) {
+                req   = pos;
+                wrote = lwrb_write(&uart_rb, &dma_rx_buf[0], req);
+                if (wrote < req) s_uart_overflow_count += (uint32_t)(req - wrote);
+            }
         }
         old_pos = pos;
     }

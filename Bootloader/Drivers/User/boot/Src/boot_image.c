@@ -49,7 +49,8 @@ int Boot_CheckVector(uint32_t app_entry)
     uint32_t msp   = *(volatile uint32_t*)app_entry;
     uint32_t reset = *(volatile uint32_t*)(app_entry + 4);
 
-    /* MSP 必须指向有效的 RAM 区域 */
+    /* 这里只做“能不能启动”的粗校验，不验证更细的栈范围。
+       目的是尽早过滤掉明显损坏/地址错位的镜像。 */
     int msp_ok = ((msp & 0x2FF00000u) == 0x20000000u) ||   /* DTCM */
                  ((msp & 0x2FF00000u) == 0x24000000u);     /* AXI SRAM */
 
@@ -64,6 +65,7 @@ int Boot_CheckVector(uint32_t app_entry)
  */
 uint32_t Boot_CalcImageCRC(uint32_t base, uint32_t hdr_size, uint32_t img_size)
 {
+    /* CRC 只覆盖镜像体，不覆盖镜像头；镜像头中的 CRC 字段本身参与计算会形成自引用。 */
     const uint8_t *p = (const uint8_t *)(base + hdr_size);
 
     __HAL_CRC_DR_RESET(&hcrc);  /* 复位 CRC 到初始值 */
@@ -71,7 +73,7 @@ uint32_t Boot_CalcImageCRC(uint32_t base, uint32_t hdr_size, uint32_t img_size)
     uint32_t words = img_size / 4;
     uint32_t tail  = img_size % 4;
 
-    /* 分块计算，每次 512 words = 2KB，避免看门狗超时 */
+    /* 分块计算，每次 512 words = 2KB，避免在大镜像上长时间占住 CPU。 */
     const uint32_t CHUNK = 512;
     while (words) {
         uint32_t n = (words > CHUNK) ? CHUNK : words;
@@ -81,7 +83,8 @@ uint32_t Boot_CalcImageCRC(uint32_t base, uint32_t hdr_size, uint32_t img_size)
         /* 可在此处喂狗 IWDG->KR = 0xAAAA; */
     }
 
-    /* 处理尾部非 4 字节对齐的数据 */
+    /* HAL CRC 按 32-bit 喂数，尾包不足 4B 时用 0xFF 补齐，
+       与 Flash 擦除态保持一致，确保离线工具和目标端结果一致。 */
     if (tail) {
         uint32_t last = 0xFFFFFFFFu;  /* 0xFF padding */
         memcpy(&last, p, tail);
@@ -102,7 +105,8 @@ int Boot_CheckCRC(uint32_t slot_base, const image_hdr_t* hdr)
         return 0;
     }
     
-    /* 校验前 invalidate DCache，确保读取的是 Flash 实际内容 */
+    /* 镜像可能刚被 IAP 写入，校验前必须失效 D-Cache，
+       否则会把缓存里的旧内容当成 Flash 真值去算 CRC。 */
     SCB_InvalidateDCache_by_Addr((uint32_t *)(slot_base + HDR_SIZE), hdr->img_size);
     
     uint32_t calc_crc = Boot_CalcImageCRC(slot_base, HDR_SIZE, hdr->img_size);
@@ -140,7 +144,8 @@ image_t Boot_InspectImage(uint32_t slot_base)
         .valid     = 0
     };
     
-    /* 校验顺序: Magic -> Vector -> CRC (越往后越耗时) */
+    /* 校验顺序按“便宜优先”设计：
+       先用 Magic/向量表快速过滤垃圾镜像，再做最耗时的整镜像 CRC。 */
     if (!Boot_CheckMagic(img.hdr)) {
         return img;  /* Magic 无效，跳过后续校验 */
     }
